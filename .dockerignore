@@ -1,0 +1,16 @@
+.git
+.venv
+.env
+*.db
+*.sqlite*
+data
+__pycache__
+.pytest_cache
+.ruff_cache
+
+.env.*
+!.env.example
+*.pem
+*.key
+docs/evidence
+.mypy_cache

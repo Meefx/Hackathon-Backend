@@ -457,12 +457,13 @@ def test_signing_rejects_weak_secret_and_invalid_ttl():
 def test_dispatch_rechecks_clock_after_blocking_state_locks(monkeypatch):
     """A lock wait crossing closing time invalidates an earlier approval."""
     from app.services import dispatch_gate as gate
+    from app.trust.security import Actor
 
     before_close = datetime(2026, 11, 9, 12, 59, 59, tzinfo=UTC)
     after_close = before_close + timedelta(seconds=2)
     clock = SimpleNamespace(value=before_close)
     clock.now = lambda: clock.value
-    actor = SimpleNamespace(principal="synthetic", product="demo")
+    actor = Actor("synthetic-clock-test", "operator", "cf", "spaylater")
     attempt_id = UUID("10000000-0000-0000-0000-000000000001")
     case_id = UUID("20000000-0000-0000-0000-000000000001")
     template_id = UUID("30000000-0000-0000-0000-000000000001")

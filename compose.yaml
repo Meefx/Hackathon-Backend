@@ -1,0 +1,71 @@
+name: collectflow
+
+x-backend: &backend
+  build: .
+  environment:
+    DATABASE_URL: postgresql://${POSTGRES_USER:-collectflow}:${POSTGRES_PASSWORD:-local-demo-password}@postgres:5432/${POSTGRES_DB:-collectflow}
+    APP_NAME: ${APP_NAME:-CollectFlow API}
+    TRUST_ENABLED: ${TRUST_ENABLED:-false}
+    TRUST_JWT_SECRET: ${TRUST_JWT_SECRET:-}
+    TRUST_APPROVAL_SECRET: ${TRUST_APPROVAL_SECRET:-}
+    TRUST_DEMO_AUTH_ENABLED: "false"
+    SIMULATION_MODE: "true"
+    CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:3000"]}'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-collectflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-demo-password}
+      POSTGRES_DB: ${POSTGRES_DB:-collectflow}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    <<: *backend
+    command: ["uv", "run", "--no-sync", "alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    <<: *backend
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 10
+
+  postgres-test:
+    image: pgvector/pgvector:pg17
+    profiles: ["test"]
+    environment:
+      POSTGRES_USER: collectflow_test
+      POSTGRES_PASSWORD: local-test-password
+      POSTGRES_DB: collectflow_test
+    ports:
+      - "127.0.0.1:${TEST_POSTGRES_PORT:-5433}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U collectflow_test -d collectflow_test"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  postgres_data:

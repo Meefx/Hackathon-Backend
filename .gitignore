@@ -13,3 +13,5 @@ data/
 dist/
 *.egg-info/
 docs/evidence/
+
+.mypy_cache/

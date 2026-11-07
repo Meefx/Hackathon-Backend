@@ -1,16 +1,14 @@
-"""Insert fictional demo accounts explicitly; safe to rerun without duplicates."""
+"""Explicit, transactional fictional demo seed. Run migrations first."""
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from app.config import get_settings
-from app.store import connect, initialize
+from app.db.connection import connect
 
 
-def seed() -> None:
-    path = get_settings().database_path
-    initialize(path)
-    today = datetime.now(ZoneInfo("Asia/Jakarta")).date()
+def seed(today: date | None = None) -> int:
+    today = today or datetime.now(ZoneInfo("Asia/Jakarta")).date()
     samples = [
         ("CF-1001", "Alex Morgan", 4_500_000, 104, "Sarah Wilson"),
         ("CF-1002", "Jordan Lee", 2_750_000, 67, "Daniel Brooks"),
@@ -21,15 +19,18 @@ def seed() -> None:
         ("CF-1007", "Avery Stone", 2_100_000, 0, "Sarah Wilson"),
         ("CF-1008", "Morgan Ellis", 1_500_000, -7, "Daniel Brooks"),
     ]
-    with connect(path) as connection:
-        before = connection.total_changes
-        connection.executemany(
-            "INSERT OR IGNORE INTO accounts VALUES (?, ?, ?, ?, ?, ?)",
-            [(ref, name, f"LN-{ref[3:]}", amount, (today - timedelta(days=days)).isoformat(), owner)
-             for ref, name, amount, days, owner in samples],
-        )
-        print(f"Inserted {connection.total_changes - before} fictional demo accounts.")
+    inserted = 0
+    with connect(get_settings().database_url) as connection:
+        for ref, name, amount, days, owner in samples:
+            cursor = connection.execute(
+                "INSERT INTO accounts "
+                "(id, borrower_name, loan_reference, outstanding_amount, due_date, assigned_to) "
+                "VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                (ref, name, f"LN-{ref[3:]}", amount, today - timedelta(days=days), owner),
+            )
+            inserted += cursor.rowcount
+    return inserted
 
 
 if __name__ == "__main__":
-    seed()
+    print(f"Inserted {seed()} fictional demo accounts.")

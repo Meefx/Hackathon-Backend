@@ -203,7 +203,7 @@ def test_inv_only_gate_imports_channels():
 
 
 def test_new_domain_uses_injected_clock():
-    for directory in ("app/trust", "app/services"):
+    for directory in ("app/trust", "app/services", "app/modules/trust"):
         for path in Path(directory).rglob("*.py"):
             for node in ast.walk(ast.parse(path.read_text())):
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):

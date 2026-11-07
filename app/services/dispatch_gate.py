@@ -11,9 +11,13 @@ from app.trust.errors import TrustError
 from app.trust.knowledge import get_template
 from app.trust.runtime import contact_context, scoped_case
 from app.trust.safety import evaluate_contact, verify_approval
+from app.trust.security import require
 
 
 def dispatch(conn, actor, prepared, secret, clock):
+    # Service callers must satisfy the same capability as the HTTP pipeline,
+    # including idempotent replays. An existing approval does not grant a role.
+    require(actor, "attempt:create")
     # Global audit chain has one writer in this MVP. Take its lock first,
     # consistently with knowledge lifecycle mutations, to avoid lock inversions.
     conn.execute("SELECT pg_advisory_xact_lock(71107002)")

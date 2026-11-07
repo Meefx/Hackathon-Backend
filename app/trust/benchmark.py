@@ -22,11 +22,13 @@ def main():
     app = create_trust_app(demo_settings(), FrozenClock(datetime(2026, 11, 9, 3, tzinfo=UTC)))
     durations = []
     with TestClient(app) as client:
-        token = client.post("/auth/demo-login", json={"role": "personal"}).json()["access_token"]
+        token = client.post("/api/v1/trust/auth/demo-login", json={"role": "personal"}).json()[
+            "access_token"
+        ]
         for index in range(args.requests + 5):
             start = time.perf_counter()
             response = client.post(
-                "/knowledge/search",
+                "/api/v1/trust/knowledge/search",
                 json={"query": "polite reminder"},
                 headers={
                     "Authorization": "Bearer " + token,

@@ -15,3 +15,16 @@ additional user-owned chats were created.
 | Visual QA | Attempted browser access to local console | Browser permission declined; visual QA not claimed |
 
 Exact command summaries and limitations are in 09_Implementation_Report.md.
+
+## Finalization against team main
+
+- Pulled main through `b517c53`; histories diverged, so prepared a noncommitting merge.
+- Parallel database thread: Alembic ownership, safe per-test databases, migration checks.
+- Parallel API thread: versioned typed routes, shared services, startup and contract tests.
+- Independent review thread: dispatch permission gap fixed, bounded lists, lock-time review.
+- Parent: configuration, Compose/CI, merge resolution, safety fixture alignment, full
+  verification and handoff documentation. No commit/push, explicitly reserved for Erwan.
+- Final complete suite: `358 passed, 1 warning in 49.79s`. API schema follow-up:
+  `17 passed, 1 warning in 8.94s`. Ruff and mypy (40 source files) passed.
+- Fresh migrated CLI demo: source retired, template suspended, second send denied,
+  duplicate reuses attempt, audit valid with 18 events checked. Old demo DB preserved.

@@ -2,7 +2,6 @@
 
 import argparse
 import json
-import os
 import secrets
 from datetime import UTC, datetime
 from pathlib import Path
@@ -10,6 +9,7 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
+from app.config import Settings
 from app.core.clock import FrozenClock
 from app.trust.app import create_trust_app
 from app.trust.settings import TrustSettings
@@ -17,10 +17,9 @@ from app.trust.settings import TrustSettings
 
 def demo_settings():
     """Demo-only ephemeral keys. Never printed, persisted or used in production."""
+    config = Settings.from_environment()
     return TrustSettings(
-        os.environ.get(
-            "TRUST_DATABASE_URL", "postgresql://graceline@127.0.0.1:55432/graceline_trust"
-        ),
+        config.trust_database_url or config.database_url,
         secrets.token_urlsafe(48),
         secrets.token_urlsafe(48),
         demo_auth_enabled=True,
@@ -32,12 +31,14 @@ def run_scenario(client):
 
     def call(role, method, path, data=None, key=None):
         if role not in tokens:
-            response = client.post("/auth/demo-login", json={"role": role, "principal": "cf"})
+            response = client.post(
+                "/api/v1/trust/auth/demo-login", json={"role": role, "principal": "cf"}
+            )
             response.raise_for_status()
             tokens[role] = response.json()["access_token"]
         response = client.request(
             method,
-            path,
+            "/api/v1/trust" + path,
             json=data,
             headers={
                 "Authorization": "Bearer " + tokens[role],

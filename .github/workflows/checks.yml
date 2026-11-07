@@ -6,18 +6,19 @@ jobs:
   check:
     runs-on: ubuntu-latest
     services:
-      trust-db:
+      postgres:
         image: pgvector/pgvector:pg17
         env:
-          POSTGRES_USER: graceline
-          POSTGRES_DB: graceline_trust_test
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports: ["55432:5432"]
+          POSTGRES_USER: collectflow_test
+          POSTGRES_PASSWORD: local-test-password
+          POSTGRES_DB: collectflow_test
+        ports:
+          - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U graceline -d graceline_trust_test"
-          --health-interval 3s --health-timeout 3s --health-retries 10
+          --health-cmd "pg_isready -U collectflow_test -d collectflow_test"
+          --health-interval 3s --health-timeout 3s --health-retries 20
     env:
-      TRUST_TEST_DATABASE_URL: postgresql://graceline@127.0.0.1:55432/graceline_trust_test
+      TEST_DATABASE_URL: postgresql://collectflow_test:local-test-password@127.0.0.1:5432/collectflow_test
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -26,4 +27,4 @@ jobs:
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run mypy app
-      - run: uv run pytest
+      - run: uv run pytest -q

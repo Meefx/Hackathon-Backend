@@ -1,7 +1,7 @@
-CREATE EXTENSION IF NOT EXISTS vector;
-CREATE SCHEMA IF NOT EXISTS trust;
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
+CREATE SCHEMA trust;
 
-CREATE TABLE IF NOT EXISTS trust.audit_events (
+CREATE TABLE trust.audit_events (
     seq bigint PRIMARY KEY,
     event_id uuid NOT NULL UNIQUE,
     occurred_at timestamptz NOT NULL,
@@ -28,7 +28,7 @@ DROP TRIGGER IF EXISTS audit_no_truncate ON trust.audit_events;
 CREATE TRIGGER audit_no_truncate BEFORE TRUNCATE ON trust.audit_events
 FOR EACH STATEMENT EXECUTE FUNCTION trust.block_audit_mutation();
 
-CREATE TABLE IF NOT EXISTS trust.knowledge_documents (
+CREATE TABLE trust.knowledge_documents (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     principal text NOT NULL,
     product text NOT NULL,
@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS trust.knowledge_documents (
     ))
 );
 
-CREATE TABLE IF NOT EXISTS trust.knowledge_chunks (
+CREATE TABLE trust.knowledge_chunks (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id uuid NOT NULL REFERENCES trust.knowledge_documents(id),
     ordinal integer NOT NULL CHECK (ordinal >= 0),
@@ -74,18 +74,18 @@ CREATE TABLE IF NOT EXISTS trust.knowledge_chunks (
     parent_locator text,
     text text NOT NULL,
     content_hash text NOT NULL CHECK (length(content_hash) = 64),
-    embedding vector(64) NOT NULL,
+    embedding public.vector(64) NOT NULL,
     embedding_profile text NOT NULL DEFAULT 'local_hash_v1_nonsemantic',
     search_vector tsvector GENERATED ALWAYS AS (to_tsvector('english', text)) STORED,
     UNIQUE (document_id, ordinal)
 );
-CREATE INDEX IF NOT EXISTS knowledge_chunks_search ON trust.knowledge_chunks USING gin(search_vector);
-CREATE INDEX IF NOT EXISTS knowledge_chunks_vector ON trust.knowledge_chunks
-USING hnsw (embedding vector_cosine_ops);
-CREATE INDEX IF NOT EXISTS knowledge_documents_scope ON trust.knowledge_documents
+CREATE INDEX knowledge_chunks_search ON trust.knowledge_chunks USING gin(search_vector);
+CREATE INDEX knowledge_chunks_vector ON trust.knowledge_chunks
+USING hnsw (embedding public.vector_cosine_ops);
+CREATE INDEX knowledge_documents_scope ON trust.knowledge_documents
 (principal, product, status, effective_from);
 
-CREATE TABLE IF NOT EXISTS trust.templates (
+CREATE TABLE trust.templates (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     principal text NOT NULL,
     product text NOT NULL,
@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS trust.templates (
     ))
 );
 
-CREATE TABLE IF NOT EXISTS trust.knowledge_dependencies (
+CREATE TABLE trust.knowledge_dependencies (
     document_id uuid NOT NULL,
     template_id uuid NOT NULL,
     principal text NOT NULL,
@@ -122,7 +122,7 @@ CREATE TABLE IF NOT EXISTS trust.knowledge_dependencies (
     FOREIGN KEY (template_id, principal, product)
         REFERENCES trust.templates(id, principal, product)
 );
-CREATE INDEX IF NOT EXISTS knowledge_dependencies_template ON trust.knowledge_dependencies(template_id);
+CREATE INDEX knowledge_dependencies_template ON trust.knowledge_dependencies(template_id);
 
 CREATE OR REPLACE FUNCTION trust.protect_knowledge_version() RETURNS trigger
 LANGUAGE plpgsql AS $$

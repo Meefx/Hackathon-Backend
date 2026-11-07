@@ -232,8 +232,8 @@
       </footer>
     </main>
     <script>
-      const base = location.pathname.replace(/\/console\/?$/, "");
-      document.getElementById("docs").href = base + "/docs";
+      const base = "/api/v1/trust";
+      document.getElementById("docs").href = "/docs";
       const state = {};
       const output = document.getElementById("output");
       function log(label, result) {

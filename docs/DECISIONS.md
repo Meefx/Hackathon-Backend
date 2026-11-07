@@ -1,6 +1,9 @@
 # Trust module decisions
 
-- Keep the team's read-only SQLite portfolio unchanged. Isolate new persistence in a PostgreSQL `trust` schema and a standalone FastAPI app. Integration can mount/route it after the team agrees authentication and database ownership.
+- Preserve the team's PostgreSQL portfolio contracts and account data. Version trust tables in the same Alembic history, inside a `trust` schema. Register opt-in `/api/v1/trust` routes with a shared service boundary; retain the explicit standalone demo launcher. No automatic account-to-case identity or mandate mapping.
+- `app/modules/trust` owns typed HTTP boundaries, orchestration and request persistence. Existing safety/evidence primitives in `app/trust` are retained during gradual extraction to preserve tested invariants. Future MCP adapters must call the same service, never a second gate.
+- Centralize configuration in `app/config.py` and connections in `app/db/connection.py`. No startup DDL. Reject unversioned trust schemas instead of adopting unknown structures. Populated trust data cannot be downgraded destructively.
+- Test roles use a dedicated `_test` base database with CREATEDB; each test gets a fresh disposable database because search_path cannot isolate hardcoded `trust.*` tables.
 - Use PostgreSQL17, pgvector, full-text search and reciprocal rank fusion. The local feature-hash vector is explicitly nonsemantic. No embedding/model quality claim is made.
 - Use explicit source-to-template weighted dependencies. Every dependency is mandatory regardless of weight. Criticality requests deeper evidence context; neither weight nor model confidence grants permission.
 - Freeze document/template artifacts and bind approvals to hashes. Retire is one-way; a replacement is a new artifact requiring QA and human review.

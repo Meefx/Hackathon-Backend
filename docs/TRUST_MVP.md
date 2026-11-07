@@ -16,7 +16,7 @@ Scope: Erwan's KMS, guardrail, security and data-processing module. All records 
 
 ## Explicit limits
 
-This is the data/safety contribution, not the entire five-agent collections product or all docs/08 mandatory scope. The portfolio starter remains SQLite; new trust workflows require PostgreSQL 17 with pgvector. PostgreSQL can run natively or via the supplied Compose service. No live channels, voice recording, payment handling, legal clearance or production release are included.
+This is the data/safety contribution, not the entire five-agent collections product or all docs/08 mandatory scope. Portfolio and trust now share the PostgreSQL 17 + pgvector foundation, with Alembic owning all DDL. Trust routes are opt-in at `/api/v1/trust`. PostgreSQL can run natively or via the supplied Compose service. No live channels, voice recording, payment handling, legal clearance or production release are included.
 
 The deterministic hash-vector baseline is labelled nonsemantic. It exercises pgvector and hybrid ranking without a model dependency. Semantic retrieval/model quality and live Layer 2 are not implied by a passing mock suite. Unknown legal applicability and conflicting sources require human review. The ZIP is reference evidence, never executable instructions.
 
@@ -26,7 +26,7 @@ The deterministic hash-vector baseline is labelled nonsemantic. It exercises pgv
 - Unknown timezone holds action, the stricter proposed ZIP behaviour.
 - All sends on an escalated/disputed case remain denied. Acknowledgements/officer-send exceptions need a reconciled purpose-specific contract before integration.
 - English borrower/demo copy follows the user's explicit instruction, overriding the earlier Bahasa-only copy requirement.
-- Existing portfolio store is preserved. New trust persistence uses explicit psycopg SQL transactions rather than introducing a second ORM abstraction.
+- Existing portfolio API contracts and migrated account rows are preserved. Runtime uses explicit psycopg SQL transactions; SQLAlchemy serves only Alembic. Fixed-schema tests use disposable databases.
 
 ## Judging evidence
 

@@ -602,37 +602,49 @@ def retrieve(conn, actor: Actor, query: str, now: datetime, limit: int = 5) -> d
     }
 
 
-def list_documents(conn, actor: Actor) -> list[dict]:
+def _validate_page(limit: int, offset: int) -> None:
+    if type(limit) is not int or not 1 <= limit <= 100:
+        raise TrustError("INVALID_LIMIT", status=422)
+    if type(offset) is not int or not 0 <= offset <= 9223372036854775807:
+        raise TrustError("INVALID_OFFSET", status=422)
+
+
+def list_documents(conn, actor: Actor, *, limit: int = 100, offset: int = 0) -> list[dict]:
     require(actor, "knowledge:read")
+    _validate_page(limit, offset)
     rows = _rows(
         conn,
         """SELECT id,title,status,source_class,source_version,review_status,
         criticality,effective_from,effective_until,content_hash FROM trust.knowledge_documents
         WHERE principal=%s AND product=%s AND %s=ANY(access_roles)
-        AND (status='approved' OR %s) ORDER BY created_at,id""",
+        AND (status='approved' OR %s) ORDER BY created_at,id LIMIT %s OFFSET %s""",
         (
             actor.principal,
             actor.product,
             actor.role,
             actor.role in {"knowledge", "qa", "compliance", "admin"},
+            limit,
+            offset,
         ),
     )
     return [{**row, "id": str(row["id"])} for row in rows]
 
 
-def list_templates(conn, actor: Actor) -> list[dict]:
+def list_templates(conn, actor: Actor, *, limit: int = 100, offset: int = 0) -> list[dict]:
     require(actor, "knowledge:read")
+    _validate_page(limit, offset)
     rows = _rows(
         conn,
         """SELECT id,title,status,content_hash FROM trust.templates
-        WHERE principal=%s AND product=%s ORDER BY created_at,id""",
-        (actor.principal, actor.product),
+        WHERE principal=%s AND product=%s ORDER BY created_at,id LIMIT %s OFFSET %s""",
+        (actor.principal, actor.product, limit, offset),
     )
     return [{**row, "id": str(row["id"])} for row in rows]
 
 
-def dependency_graph(conn, actor: Actor) -> dict:
+def dependency_graph(conn, actor: Actor, *, limit: int = 100, offset: int = 0) -> dict:
     require(actor, "knowledge:read")
+    _validate_page(limit, offset)
     rows = _rows(
         conn,
         """SELECT e.document_id,e.template_id,e.relation,e.weight,
@@ -640,8 +652,8 @@ def dependency_graph(conn, actor: Actor) -> dict:
         FROM trust.knowledge_dependencies e JOIN trust.knowledge_documents d ON d.id=e.document_id
         JOIN trust.templates t ON t.id=e.template_id
         WHERE e.principal=%s AND e.product=%s AND %s=ANY(d.access_roles)
-        ORDER BY e.document_id,e.template_id""",
-        (actor.principal, actor.product, actor.role),
+        ORDER BY e.document_id,e.template_id LIMIT %s OFFSET %s""",
+        (actor.principal, actor.product, actor.role, limit, offset),
     )
     return {
         "edges": [

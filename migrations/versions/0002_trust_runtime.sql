@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS trust.cases (
+CREATE TABLE trust.cases (
     id uuid PRIMARY KEY,
     principal text NOT NULL,
     product text NOT NULL,
@@ -10,13 +10,13 @@ CREATE TABLE IF NOT EXISTS trust.cases (
     created_at timestamptz NOT NULL,
     UNIQUE (id, principal, product)
 );
-CREATE TABLE IF NOT EXISTS trust.contact_budgets (
+CREATE TABLE trust.contact_budgets (
     principal text NOT NULL,
     product text NOT NULL,
     borrower_ref uuid NOT NULL,
     PRIMARY KEY (principal, product, borrower_ref)
 );
-CREATE TABLE IF NOT EXISTS trust.attempts (
+CREATE TABLE trust.attempts (
     id uuid PRIMARY KEY,
     principal text NOT NULL,
     product text NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS trust.attempts (
     UNIQUE (principal, product, idempotency_key),
     FOREIGN KEY (case_id,principal,product) REFERENCES trust.cases(id,principal,product)
 );
-CREATE TABLE IF NOT EXISTS trust.dispatches (
+CREATE TABLE trust.dispatches (
     id uuid PRIMARY KEY,
     attempt_id uuid NOT NULL UNIQUE REFERENCES trust.attempts(id),
     principal text NOT NULL,
@@ -47,9 +47,9 @@ CREATE TABLE IF NOT EXISTS trust.dispatches (
     is_simulated boolean NOT NULL CHECK (is_simulated),
     delivered_at timestamptz NOT NULL
 );
-CREATE INDEX IF NOT EXISTS trust_budget_history
+CREATE INDEX trust_budget_history
     ON trust.dispatches(principal,product,borrower_ref,delivered_at);
-CREATE TABLE IF NOT EXISTS trust.conversations (
+CREATE TABLE trust.conversations (
     id uuid PRIMARY KEY,
     principal text NOT NULL,
     product text NOT NULL,
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS trust.conversations (
     created_at timestamptz NOT NULL,
     FOREIGN KEY (case_id,principal,product) REFERENCES trust.cases(id,principal,product)
 );
-CREATE TABLE IF NOT EXISTS trust.request_records (
+CREATE TABLE trust.request_records (
     principal text NOT NULL,
     product text NOT NULL,
     key uuid NOT NULL,

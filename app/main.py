@@ -1,35 +1,32 @@
-from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Annotated
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from psycopg import Error as DatabaseError
 
 from app.config import get_settings
+from app.db.connection import check_ready
+from app.modules.accounts.service import get_account, list_accounts
+from app.modules.dashboard.service import summarize
 from app.schemas import Account, AccountPage, CollectionStatus, Dashboard, Health
-from app.store import get_account, initialize, list_accounts, summarize
+from app.trust.app import configure_trust
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
 
-    @asynccontextmanager
-    async def lifespan(app: FastAPI):
-        initialize(settings.database_path)
-        yield
-
     app = FastAPI(
         title=settings.app_name,
         version="0.1.0",
         description="Development starter for a lending collections portal. Amounts are whole IDR.",
-        lifespan=lifespan,
     )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
-        allow_methods=["GET"],
-        allow_headers=["Accept", "Content-Type"],
+        allow_methods=["GET", "POST"] if settings.trust_enabled else ["GET"],
+        allow_headers=["Accept", "Content-Type", "Authorization", "Idempotency-Key"],
     )
 
     def today():
@@ -39,9 +36,18 @@ def create_app() -> FastAPI:
     def health():
         return {"status": "ok", "service": settings.app_name}
 
+    @app.get("/ready", response_model=Health, tags=["Health"])
+    def ready():
+        try:
+            if check_ready(settings.database_url):
+                return {"status": "ok", "service": settings.app_name}
+        except DatabaseError:
+            pass
+        raise HTTPException(status_code=503, detail="Database is not ready")
+
     @app.get("/api/v1/dashboard", response_model=Dashboard, tags=["Dashboard"])
     def dashboard():
-        return summarize(list_accounts(settings.database_path, today()))
+        return summarize(list_accounts(settings.database_url, today()))
 
     @app.get("/api/v1/accounts", response_model=AccountPage, tags=["Accounts"])
     def accounts(
@@ -51,23 +57,33 @@ def create_app() -> FastAPI:
         offset: Annotated[int, Query(ge=0)] = 0,
     ):
         """Search borrower or loan reference; ordered by oldest due date, then ID."""
-        items = list_accounts(settings.database_path, today())
+        items = list_accounts(settings.database_url, today())
         needle = search.strip().casefold()
         items = [
-            item for item in items
+            item
+            for item in items
             if (not status or item["status"] == status)
-            and (needle in item["borrower_name"].casefold()
-                 or needle in item["loan_reference"].casefold())
+            and (
+                needle in item["borrower_name"].casefold()
+                or needle in item["loan_reference"].casefold()
+            )
         ]
-        return {"items": items[offset:offset + limit], "total": len(items),
-                "limit": limit, "offset": offset}
+        return {
+            "items": items[offset : offset + limit],
+            "total": len(items),
+            "limit": limit,
+            "offset": offset,
+        }
 
     @app.get("/api/v1/accounts/{account_id}", response_model=Account, tags=["Accounts"])
     def account_detail(account_id: str):
-        account = get_account(settings.database_path, account_id, today())
+        account = get_account(settings.database_url, account_id, today())
         if account is None:
             raise HTTPException(status_code=404, detail="Account not found")
         return account
+
+    if settings.trust_enabled:
+        configure_trust(app, settings.trust_settings())
 
     return app
 
