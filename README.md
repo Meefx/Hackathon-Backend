@@ -1,6 +1,6 @@
 # CollectFlow API
 
-FastAPI backend for CollectFlow, a lending collections portal. The read-only portfolio provides account search, pagination, dashboard totals, and aging buckets backed by PostgreSQL. All demo names are fictional. Amounts are integer Indonesian rupiah (IDR). The broader Graceline agent workflow remains planned.
+FastAPI backend for CollectFlow, a lending collections portal. The read-only portfolio provides account search, pagination, dashboard totals, and aging buckets backed by PostgreSQL. All demo names are fictional. Amounts are integer Indonesian rupiah (IDR). Collection workflows now have persistent synthetic demo support; live provider acceptance is reported separately.
 
 ## Run with Docker Compose
 
@@ -12,7 +12,7 @@ docker compose up --build -d --wait
 docker compose exec backend uv run --no-sync python -m app.seed
 ```
 
-Compose starts PostgreSQL 17, waits for database health, runs the versioned Alembic migration in the one-shot `migrate` service, and starts the API. Seeding is a separate, explicit operation. Rerunning it preserves existing rows and their first-seeded due dates, including concurrent runs.
+Compose starts PostgreSQL 17 with pgvector, waits for database health, runs the versioned Alembic migration in the one-shot `migrate` service, and starts the API. Seeding is a separate, explicit operation. Rerunning it preserves existing rows and their first-seeded due dates, including concurrent runs.
 
 The API listens at [http://localhost:8000](http://localhost:8000). Open [Swagger UI](http://localhost:8000/docs) or [OpenAPI](http://localhost:8000/openapi.json). PostgreSQL and backend published ports bind to loopback. `POSTGRES_PORT` and `BACKEND_PORT` in `.env` can change the host ports. The named `postgres_data` volume persists portfolio data across container recreation.
 
@@ -57,7 +57,7 @@ docker compose run --rm migrate
 docker compose up -d --wait backend
 ```
 
-Review target settings and take a consistent backup before changing a populated database. Future changes belong in new revisions under `migrations/versions/`. Update `REQUIRED_REVISION` in `app/db/connection.py` with the deployed head so `/ready` detects an outdated schema. The baseline downgrade drops all account data. Use downgrades only on an authorized disposable target or after verifying backup and restore.
+Review target settings and take a consistent backup before changing a populated database. Future changes belong in new revisions under `migrations/versions/`. Update `REQUIRED_REVISION` in `app/db/connection.py` with the deployed head so `/ready` detects an outdated schema. Revision `0002_trust` refuses downgrade when any trust table contains data. An existing unversioned `trust` schema is rejected without adopting or dropping it. Preserve the old database and use a reviewed export/forward migration; never stamp it as migrated. The baseline downgrade drops all account data. Use downgrades only on an authorized disposable target or after verifying backup and restore.
 
 Existing `data/collectflow.db` files are left in place. To preserve a legacy SQLite portfolio, first stop legacy writers or create a consistent snapshot with SQLite's backup API, including committed WAL data. Keep that source snapshot as a backup. Migrate an empty PostgreSQL destination, then import explicitly before demo seeding.
 
@@ -91,7 +91,7 @@ Pydantic models in `app/schemas.py` and generated OpenAPI define the HTTP contra
 
 ## Checks
 
-Tests require a dedicated PostgreSQL database whose name ends in `_test`. Each database test creates, migrates, and drops its own random schema within that database. `DATABASE_URL` from the developer environment is replaced for the test and restored afterward. The optional test service uses tmpfs storage.
+Tests require a dedicated PostgreSQL database whose name ends in `_test`. Each database test creates, migrates, and drops its own randomly named database. The configured test role must have CREATEDB; the base test database is never cleared. This isolates the fixed `trust` schema as well as portfolio data. `DATABASE_URL` from the developer environment is replaced for the test and restored afterward. The optional test service uses tmpfs storage.
 
 ```sh
 uv sync --locked
@@ -99,6 +99,7 @@ docker compose --profile test up -d --wait postgres-test
 TEST_DATABASE_URL=postgresql://collectflow_test:local-test-password@127.0.0.1:5433/collectflow_test \
   uv run pytest
 uv run ruff check .
+uv run mypy app
 docker compose --profile test stop postgres-test
 ```
 
@@ -116,9 +117,177 @@ app/modules/accounts/repository.py Account SQL
 app/modules/accounts/service.py    Aging and portfolio reads
 app/modules/dashboard/service.py   Portfolio aggregation
 app/seed.py                        Explicit fictional demo seed
-migrations/versions/               Versioned schema history
+app/modules/trust/                 Typed routes, service and repository boundary
+app/trust/                         Existing evidence and safety engine
+app/services/dispatch_gate.py      Sole simulated-channel entry point
+migrations/versions/               Accounts and trust versioned schema history
 compose.yaml                      Local PostgreSQL, migration, API, test service
 tests/                            Isolated PostgreSQL and HTTP tests
 ```
 
-Authentication, authorization, write workflows, agent/MCP workflows, and payment integrations remain future work. Use synthetic data for this local demo.
+Remote operator authentication and payment integrations remain future work. Use synthetic data for this local demo.
+
+## Persistent collection demo
+
+The v2 collection API adds manager sessions, durable account runs, immutable knowledge snapshots,
+message drafts, HMAC-bound compliance approvals, simulated dispatch, manual review, and chained
+account audit. The existing portfolio contract remains unchanged. Run Alembic before restarting
+API/worker processes. `python -m app.seed` explicitly provisions the eight fictional accounts,
+synthetic verified recipients, and a `demo-policy-v1` fixture covering dates through 2027-12-31.
+Unseeded/imported accounts remain ineligible until a verified recipient and eligibility are set.
+
+```sh
+uv run alembic upgrade head
+uv run python -m app.seed
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+# In a separate terminal using the same backend environment:
+uv run python -m app.workers.collection
+```
+
+Compose now starts a worker from the same backend image. The API accepts and persists tasks while
+workers are offline. Each worker claims one task at a time using PostgreSQL leases, fencing tokens,
+and session ordering. The default lease is 60 seconds. A worker whose lease expires cannot commit;
+the run becomes `interrupted` and blocks later tasks in that manager session. Recovery only requeues
+an interrupted task with no external admission snapshot or persisted domain side effects. Ambiguous
+Hermes execution requires reconciliation; it is never automatically resubmitted. Cancel requests
+remain requests until the worker/runtime confirms termination. No recovery or resume sends a message.
+
+The demo clock is the actual Asia/Jakarta calendar. Outbound generation and dispatch require an
+eligible case, verified recipient, active policy coverage, local time 08:00–20:00, no review/operator
+hold, and fewer than one simulated message per account/calendar day. Inbound synthetic hardship,
+dispute, and human-request scenarios can open reviews at any time. Resolving `keep_paused` retains an
+operator hold; `request_resume` returns the review result and the independently evaluated resume result.
+
+The task types are `follow_up`, `collector_brief`, and `improvement_review`. Specify `runtime_mode`
+explicitly as `simulated` or `hermes`; there is no automatic fallback. The simulator uses labeled
+`demo_fixture` knowledge and QA. Hermes candidates are quarantined when the live policy classifier is
+unavailable; an agent QA report never grants dispatch approval. Improvement proposals remain advisory.
+WhatsApp, email, and phone adapters return `channel_unavailable` and create no delivery receipts.
+The only dispatch implementation is `simulated_chat`.
+
+New endpoints and request/response schemas are visible in `/docs` and `/openapi.json`. Registry reads
+use `/api/v1/agents` and `/api/v1/integrations`; histories use bounded `{items,total,limit,offset}`
+pages, including `/api/v1/runs/{id}/knowledge` because a run can retrieve several immutable snapshots.
+Submit tasks to `/api/v1/accounts/{id}/runs` with a UUID `idempotency_key` (HTTP 202), then poll
+`/api/v1/runs/{id}` and `/events?after_sequence=0`. Exact retries preserve the original response;
+reusing a key with another payload returns 409. Version-sensitive actions reject stale versions.
+The operator API is a loopback-only synthetic demo and has no remote operator authentication.
+
+## Knowledge service boundary and MCP
+
+`KNOWLEDGE_MODE=demo_fixture` selects the explicit synthetic source. To integrate the friend-owned
+knowledge module in this same backend, set `KNOWLEDGE_MODE=in_process` and
+`KNOWLEDGE_SERVICE_FACTORY=package.module:factory`. The factory must return the `KnowledgeGateway`
+contract in `app/modules/knowledge_context/contracts.py`: bounded `query_approved(request, caller)`
+and `validate_references(references, at, caller)`. Results require approved/effective source versions,
+citation IDs and hashes. Missing/unavailable/invalid required knowledge blocks generation and dispatch.
+The integrated producer implements ingestion, scoped hash-projection retrieval,
+independent QA/approval, immutable templates and source retirement in
+`app/modules/knowledge/`. Select the factory
+`app.integrations.knowledge.trust_adapter:create_gateway` for the in-process mode.
+See the [knowledge integration runbook](docs/integrations/knowledge-service.md).
+
+The MCP listener is separate from the local operator REST API. It exposes seven assigned-run tools
+through the maintained MCP SDK Streamable HTTP transport. See
+[Hermes and MCP runbook](docs/integrations/hermes-mcp.md) for the token, expiry, allowed host/origin,
+ngrok, and runtime setup. Bind only the MCP listener to an ngrok tunnel; port 8000 contains local
+operator actions. Configure a distinct `MCP_BEARER_TOKEN` and timezone-aware `MCP_TOKEN_EXPIRES_AT`.
+A principal must own a current run/account/attempt/fence assignment for execution. Exact duplicate
+writes may read the recorded result after their own pause, while changed/stale assignments are denied.
+
+```sh
+uv run uvicorn app.mcp.server:create_app --factory --host 127.0.0.1 --port 8002
+# Or from Compose, after configuring the MCP credential and expiry:
+docker compose --profile mcp up -d --build backend worker mcp
+```
+
+For a host Hermes server reached by a worker container, configure its reachable host binding and
+`HERMES_API_BASE_URL=http://host.docker.internal:<port>`; localhost inside the container is the
+container itself. Provider credentials stay backend-only. Registry output never returns credentials
+or configured URLs. `configured` is separate from live health: an unprobed configured dependency has
+`health=unknown`. MCP fixture/protocol evidence, simulator evidence, actual Hermes evidence, and actual
+knowledge-module evidence must be reported separately.
+
+Every runtime PostgreSQL transaction applies transaction-local `statement_timeout` (10,000ms by
+default) and `lock_timeout` (2,000ms); connection establishment is limited to five seconds. Configure
+`DATABASE_STATEMENT_TIMEOUT_MS` and `DATABASE_LOCK_TIMEOUT_MS` within 1–60,000ms. These settings preserve
+libpq search-path options and reset when the transaction closes. A timed-out sync MCP call waits for
+its bounded database operation and rollback to finish; cancellation never abandons a thread that can
+write later. These are per-statement/dependency bounds, not a total multi-statement transaction deadline.
+## Evidence-control MVP
+
+Erwan's contribution adds approved knowledge retrieval, weighted source dependencies,
+source retirement, deterministic safety checks, synthetic dispatch and a hash-chained
+audit. Portfolio and trust use PostgreSQL 17 with pgvector. Collection runs consume
+the producer through the shared REST/MCP service boundary. The integration runbook
+records configuration, evidence contracts and acceptance commands.
+
+### Integrated API
+
+Trust routes are opt-in on the team's main API: set `TRUST_ENABLED=true` and supply
+independent `TRUST_JWT_SECRET` and `TRUST_APPROVAL_SECRET` values of at least 32 random
+bytes each through the environment. Secrets have no usable defaults. Trust uses `DATABASE_URL`. In-process collection
+evidence validation requires trust and collection to use the same PostgreSQL database.
+Keep `TRUST_DEMO_AUTH_ENABLED=false` for the integrated backend. Compose enforces that
+setting. Provision scoped signed sessions through your trusted identity adapter;
+production identity integration is outside this MVP.
+
+Canonical routes use `/api/v1/trust`: knowledge documents/search/graph, templates,
+mapped legacy outreach/conversations, and audit events/verification. Pydantic response
+schemas appear in OpenAPI. New case creation returns `legacy_case_mapping_required`.
+Mapped operations use the canonical collection gate and receipt storage.
+
+### Explicit local demonstration
+
+The demo launcher provides a local identity picker and fresh signing keys in memory.
+It binds only to loopback, fixes time to Monday 9 November 2026 at 10:00 WIB and uses
+synthetic records. Demo approvals demonstrate the workflow, not actual legal review.
+
+Run on a **fresh migrated database**, or the portfolio database migrated from
+`0001_accounts`. The former standalone bootstrap database is not automatically adopted.
+For the default Compose database, run from the repository root:
+
+```sh
+uv sync --locked
+docker compose up -d --wait postgres
+export DATABASE_URL=postgresql://collectflow:local-demo-password@127.0.0.1:5432/collectflow
+uv run alembic upgrade head
+uv run python -m app.trust.demo --serve --port 8001
+```
+
+Open [the console](http://127.0.0.1:8001/console) or
+[Swagger](http://127.0.0.1:8001/docs). The standalone app retains hidden unversioned
+route aliases for earlier demo clients; new callers use `/api/v1/trust`. Restarting
+invalidates sessions and dispatch tokens; persisted knowledge approvals remain.
+If port 8001 is busy, choose a different `--port`.
+
+Native PostgreSQL 17 with pgvector is also supported. Set `DATABASE_URL` to that DSN
+and run Alembic before launching. If using `TRUST_DATABASE_URL`, migrate that exact
+DSN by setting `DATABASE_URL` to it for the Alembic command. Startup performs readiness
+checks only and never creates tables. `docker-compose.trust.yml` has been superseded
+by the shared `compose.yaml` stack.
+
+To verify the synthetic loop without a browser:
+
+```sh
+uv run python -m app.trust.demo --report docs/evidence/demo.json
+uv run python -m app.trust.benchmark --requests 100
+```
+
+Mutating POSTs except demo login require an `Idempotency-Key` UUID. Search always
+checks current knowledge state even with a repeated key. Scope comes from the signed
+session. List queries are bounded and expose limit/offset pagination. No portfolio
+account ID is automatically treated as a borrower identity or collection mandate.
+
+### Limits and handoff
+
+Read [handoff and integration](docs/TRUST_HANDOFF.md),
+[scope](docs/TRUST_MVP.md), [security](docs/SECURITY.md) and
+[observed verification](docs/09_Implementation_Report.md).
+Vectors are a **nonsemantic hash baseline**; Layer 2 is **mocked**. Real semantic
+retrieval, live guardrail model quality, full five-agent orchestration and the original
+50-persona evaluation are not claimed. Critical evidence expands within a fixed context
+budget and verifies hashes. Every dependency remains mandatory regardless of weight.
+
+The global audit lock serializes trust writes. The sequential local benchmark is not
+a production load test. Browser permission was declined; no visual QA is claimed.
