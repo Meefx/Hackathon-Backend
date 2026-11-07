@@ -1,8 +1,10 @@
 import hashlib
 import hmac
 from datetime import timedelta
+from typing import Any
 from zoneinfo import ZoneInfo
 
+from psycopg import Connection
 from psycopg.types.json import Jsonb
 
 from app.modules.cases.repository import contact_state, lock_case
@@ -41,7 +43,9 @@ def evaluate_contact_policy(connection, account_id, now, check_frequency=True):
             "holidays": current["holidays"],
             "channel": "sim_chat",
             "purpose": "proactive",
-            "state": state,
+            # Local holds have a separate canonical reason. Evaluate the other
+            # rules fully so an explicit resume still checks calendar and budget.
+            "state": "active" if state in {"paused_operator", "paused_human_review"} else state,
             "proactive_history": history,
         }
         # Feed ISO dates to the shared deterministic policy contract.
@@ -61,8 +65,10 @@ def evaluate_contact_policy(connection, account_id, now, check_frequency=True):
         reasons.append("account_ineligible")
     if not case["recipient_verified"] or not case["recipient_id"]:
         reasons.append("recipient_unverified")
-    if state != "active" or repository.legacy_holds(connection, account_id):
+    if state != "active":
         reasons.append("case_paused")
+    if repository.legacy_holds(connection, account_id):
+        reasons.extend(["case_paused", "legacy_case_paused"])
     return {
         "account_id": account_id,
         "case_version": case["version"],
@@ -122,7 +128,7 @@ def issue_approval(connection, message, decision, knowledge_binding, settings, n
     return True
 
 
-def get_authority(connection, account_id):
+def get_authority(connection: Connection[dict[str, Any]], account_id: str) -> dict:
     from app.shared.errors import DomainError
 
     current = repository.authority(connection, account_id)

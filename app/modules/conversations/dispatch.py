@@ -1,9 +1,15 @@
 """The sole delivery boundary, sharing one transaction with receipt and audit."""
 
 import hmac
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime
+from typing import Any
 
+from psycopg import Connection
+
+from app.config import Settings
+from app.core.clock import Clock
 from app.db.connection import connect
 from app.integrations.channels.contracts import AuthorizedIntent
 from app.integrations.channels.gateway import ChannelGateway
@@ -13,16 +19,19 @@ from app.modules.cases.repository import lock_case
 from app.modules.compliance.repository import lock_contact_authority
 from app.modules.compliance.screening import screen_candidate
 from app.modules.compliance.service import binding_for, evaluate_contact_policy, sign_binding
+from app.modules.conversations.compatibility import authorize_legacy_binding, bound_evidence
 from app.modules.conversations.repository import message_binding, template_binding
+from app.modules.conversations.schemas import DispatchRequest
 from app.modules.knowledge_context.service import validate_citations
 from app.modules.runs.repository import require_run
+from app.shared.caller import Caller
 from app.shared.errors import DomainError
 from app.shared.idempotency import record, replay
 from app.trust.errors import TrustError
 from app.trust.security import require
 
 
-def current_time(clock) -> datetime:
+def current_time(clock: datetime | Callable[[], datetime] | Clock) -> datetime:
     if isinstance(clock, datetime):
         instant = clock
     elif callable(clock):
@@ -34,12 +43,25 @@ def current_time(clock) -> datetime:
     return instant
 
 
-def simulate_dispatch(settings, message_id, request, caller, clock):
+def simulate_dispatch(
+    settings: Settings,
+    message_id: str,
+    request: DispatchRequest,
+    caller: Caller,
+    clock: datetime | Callable[[], datetime] | Clock,
+) -> dict[str, Any]:
     with connect(settings.database_url) as connection:
         return dispatch_message(connection, settings, message_id, request, caller, clock)
 
 
-def dispatch_message(connection, settings, message_id, request, caller, clock):
+def dispatch_message(
+    connection: Connection[dict[str, Any]],
+    settings: Settings,
+    message_id: str,
+    request: DispatchRequest,
+    caller: Caller,
+    clock: datetime | Callable[[], datetime] | Clock,
+) -> dict[str, Any]:
     # Capabilities are checked before discovery and replay. Model workers may
     # submit candidates, but operator-controlled dispatch is a separate action.
     if caller.actor_kind != "operator" or caller.principal_id != "local-operator":
@@ -54,6 +76,8 @@ def dispatch_message(connection, settings, message_id, request, caller, clock):
         raise DomainError("assignment_denied", "Account assignment denied", 403)
     scoped = replace(caller, account_id=initial["account_id"])
     initial_binding = message_binding(connection, message_id)
+    if not initial["run_id"]:
+        authorize_legacy_binding(connection, initial_binding, initial["account_id"])
     refs, snapshot, guard, template = [], None, None, None
     reasons = []
     gateway = get_gateway(settings)
@@ -65,8 +89,6 @@ def dispatch_message(connection, settings, message_id, request, caller, clock):
         else:
             # Runless messages can only be issued by the explicitly mapped
             # compatibility service, with a complete persisted evidence binding.
-            from app.modules.conversations.compatibility import bound_evidence
-
             snapshot, refs = bound_evidence(connection, initial_binding, initial["account_id"])
         if not hasattr(gateway, "lock_references"):
             reasons.append("knowledge_atomic_validation_unavailable")
@@ -90,6 +112,8 @@ def dispatch_message(connection, settings, message_id, request, caller, clock):
     message = connection.execute(
         "SELECT * FROM collection_messages WHERE id=%s FOR UPDATE", (message_id,)
     ).fetchone()
+    if not message:
+        raise DomainError("not_found", "Message not found", 404)
     persisted = message_binding(connection, message_id, lock=True)
     payload = request.model_dump(mode="json")
     scope = "dispatch:" + message_id
@@ -97,6 +121,8 @@ def dispatch_message(connection, settings, message_id, request, caller, clock):
     # Every potentially blocking authority/request lock has been acquired.
     now = current_time(clock)
     decision = evaluate_contact_policy(connection, message["account_id"], now)
+    if not message["run_id"]:
+        authorize_legacy_binding(connection, persisted, message["account_id"])
     if previous:
         # An old response confers no account access, but successful delivery stays
         # idempotent even when the policy or evidence has subsequently changed.

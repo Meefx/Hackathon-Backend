@@ -11,6 +11,8 @@ from mcp.client.streamable_http import streamable_http_client
 from app.config import get_settings
 from app.db.connection import connect
 from app.modules.collection.service import CollectionService
+from app.modules.conversations.schemas import ReceiveMessageRequest
+from app.modules.conversations.service import receive_message
 from app.modules.runs.schemas import StartRunRequest
 from app.modules.runs.service import start_run
 from app.seed import seed
@@ -139,3 +141,36 @@ async def test_review_write_replay_survives_its_own_pause(database_url):
                             ).fetchone()["n"]
                             == 1
                         )
+
+
+@pytest.mark.anyio
+async def test_agent_history_redacts_operational_identifiers(database_url):
+    service, assignment = assigned_service()
+    raw = "Alex Morgan LN-1001 alice@example.test 081234567890 meminta informasi."
+    receive_message(
+        get_settings(),
+        "CF-1001",
+        ReceiveMessageRequest(text=raw, idempotency_key=uuid4()),
+        Caller(),
+        datetime(2026, 11, 7, 3, tzinfo=UTC),
+    )
+    assert service.get_contact_history("CF-1001")["items"][0]["text"] == raw
+    with listener(service) as url:
+        async with httpx.AsyncClient(headers={"Authorization": f"Bearer {TOKEN}"}) as http:
+            async with streamable_http_client(url, http_client=http) as (read, write, _):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    result = await session.call_tool(
+                        "get_contact_history",
+                        {"request": {**assignment, "limit": 20}},
+                    )
+                    assert not result.isError
+                    context = result.structuredContent["items"][0]["text"]
+                    for identifier in (
+                        "Alex Morgan",
+                        "LN-1001",
+                        "alice@example.test",
+                        "081234567890",
+                    ):
+                        assert identifier not in context
+                    assert "[IDENTIFIER]" in context

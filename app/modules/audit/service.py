@@ -6,8 +6,16 @@ from app.shared.idempotency import digest
 
 
 def append_event(
-    connection, account_id, action, actor_kind, outcome, now, run_id=None, reason_codes=None,
-    *, correlation_id: str | None = None,
+    connection,
+    account_id,
+    action,
+    actor_kind,
+    outcome,
+    now,
+    run_id=None,
+    reason_codes=None,
+    *,
+    correlation_id: str | None = None,
 ):
     # Account lock serializes all account effects and the append-only hash chain.
     connection.execute("SELECT id FROM accounts WHERE id=%s FOR UPDATE", (account_id,))

@@ -40,8 +40,16 @@ def configure_trust(
         async with previous_lifespan(application):
             # psycopg is synchronous; pool lifecycle must not block the event loop.
             try:
-                await run_in_threadpool(database.open, wait=True, timeout=5)
-                await run_in_threadpool(service.ready)
+                if legacy_routes:
+                    await run_in_threadpool(database.open, wait=True, timeout=5)
+                    await run_in_threadpool(service.ready)
+                else:
+                    # Optional KMS readiness is probed by its endpoint, independently of startup.
+                    try:
+                        await run_in_threadpool(database.open, wait=False)
+                    except psycopg.Error:
+                        # Pool operations and readiness remain unavailable until it opens safely.
+                        pass
                 yield
             finally:
                 await run_in_threadpool(database.close)
@@ -90,6 +98,11 @@ def configure_trust(
         size = request.headers.get("content-length", "0")
         if not size.isdigit() or int(size) > 300000:
             return JSONResponse(status_code=413, content={"code": "REQUEST_TOO_LARGE"})
+        readiness_path = request.url.path == PREFIX + "/ready" or (
+            legacy_routes and request.url.path == "/ready"
+        )
+        if readiness_path and database.closed:
+            return JSONResponse(status_code=503, content={"code": "DATABASE_UNAVAILABLE"})
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Cache-Control"] = "no-store"

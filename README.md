@@ -181,7 +181,11 @@ knowledge module in this same backend, set `KNOWLEDGE_MODE=in_process` and
 contract in `app/modules/knowledge_context/contracts.py`: bounded `query_approved(request, caller)`
 and `validate_references(references, at, caller)`. Results require approved/effective source versions,
 citation IDs and hashes. Missing/unavailable/invalid required knowledge blocks generation and dispatch.
-This boundary does not implement ingestion, indexing, document publication, or the friend's KM module.
+The integrated producer implements ingestion, scoped hash-projection retrieval,
+independent QA/approval, immutable templates and source retirement in
+`app/modules/knowledge/`. Select the factory
+`app.integrations.knowledge.trust_adapter:create_gateway` for the in-process mode.
+See the [knowledge integration runbook](docs/integrations/knowledge-service.md).
 
 The MCP listener is separate from the local operator REST API. It exposes seven assigned-run tools
 through the maintained MCP SDK Streamable HTTP transport. See
@@ -214,23 +218,24 @@ write later. These are per-statement/dependency bounds, not a total multi-statem
 
 Erwan's contribution adds approved knowledge retrieval, weighted source dependencies,
 source retirement, deterministic safety checks, synthetic dispatch and a hash-chained
-audit. Portfolio and trust use PostgreSQL 17 with pgvector. The five-agent orchestration
-and MCP adapters remain future integration work. Real channels and payments are absent.
+audit. Portfolio and trust use PostgreSQL 17 with pgvector. Collection runs consume
+the producer through the shared REST/MCP service boundary. The integration runbook
+records configuration, evidence contracts and acceptance commands.
 
 ### Integrated API
 
 Trust routes are opt-in on the team's main API: set `TRUST_ENABLED=true` and supply
 independent `TRUST_JWT_SECRET` and `TRUST_APPROVAL_SECRET` values of at least 32 random
-bytes each through the environment. Secrets have no usable defaults. Trust uses
-`DATABASE_URL` unless `TRUST_DATABASE_URL` explicitly selects another migrated database.
+bytes each through the environment. Secrets have no usable defaults. Trust uses `DATABASE_URL`. In-process collection
+evidence validation requires trust and collection to use the same PostgreSQL database.
 Keep `TRUST_DEMO_AUTH_ENABLED=false` for the integrated backend. Compose enforces that
 setting. Provision scoped signed sessions through your trusted identity adapter;
 production identity integration is outside this MVP.
 
 Canonical routes use `/api/v1/trust`: knowledge documents/search/graph, templates,
-cases/outreach/conversations, and audit events/verification. Pydantic response schemas
-appear in OpenAPI. All use the same service, transaction boundary and dispatch gate.
-There is no unrestricted direct-send endpoint. The portfolio API remains compatible.
+mapped legacy outreach/conversations, and audit events/verification. Pydantic response
+schemas appear in OpenAPI. New case creation returns `legacy_case_mapping_required`.
+Mapped operations use the canonical collection gate and receipt storage.
 
 ### Explicit local demonstration
 

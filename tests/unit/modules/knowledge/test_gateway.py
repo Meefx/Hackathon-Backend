@@ -23,3 +23,43 @@ def test_in_process_without_factory_does_not_fallback():
         update={"knowledge_mode": "in_process", "knowledge_service_factory": None}
     )
     assert not isinstance(get_gateway(settings), DemoKnowledgeGateway)
+
+
+def test_already_expired_query_never_connects(monkeypatch):
+    import psycopg
+
+    from app.integrations.knowledge.trust_adapter import InProcessKnowledgeGateway
+
+    now = datetime(2026, 11, 9, tzinfo=UTC)
+
+    def forbidden_connection(*args, **kwargs):
+        raise AssertionError("Expired requests must not open a connection")
+
+    monkeypatch.setattr(psycopg, "connect", forbidden_connection)
+    gateway = InProcessKnowledgeGateway(clock=lambda: now)
+    request = KnowledgeQuery(query="policy", purpose="collection_draft", deadline_at=now)
+    assert gateway.query_approved(request, Caller()).reason_code == "knowledge_deadline_exceeded"
+
+
+def test_connection_timeout_uses_remaining_budget_and_driver_floor(monkeypatch):
+    import psycopg
+
+    from app.integrations.knowledge.trust_adapter import InProcessKnowledgeGateway
+
+    now = datetime(2026, 11, 9, tzinfo=UTC)
+    observed = []
+
+    def unavailable(*args, **kwargs):
+        observed.append(kwargs["connect_timeout"])
+        raise psycopg.OperationalError("Synthetic unavailable test database")
+
+    monkeypatch.setattr(psycopg, "connect", unavailable)
+    gateway = InProcessKnowledgeGateway(clock=lambda: now)
+    for milliseconds in (200, 3200, 10000):
+        request = KnowledgeQuery(
+            query="policy",
+            purpose="collection_draft",
+            deadline_at=now + timedelta(milliseconds=milliseconds),
+        )
+        assert gateway.query_approved(request, Caller()).status == "error"
+    assert observed == [2, 3, 5]

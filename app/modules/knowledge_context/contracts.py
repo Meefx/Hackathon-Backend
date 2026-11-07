@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Literal, Protocol
 
-from pydantic import AwareDatetime, BaseModel, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, Field, model_serializer, model_validator
 
 
 class KnowledgeQuery(BaseModel):
@@ -83,3 +83,14 @@ class KnowledgeSnapshot(KnowledgeResult):
     retrieved_at: AwareDatetime
     snapshot_hash: str
     snapshot_hash_version: Literal[1, 2] = 1
+
+
+    @model_serializer(mode="wrap")
+    def serialize_versioned_sources(self, handler):
+        payload = handler(self)
+        if self.snapshot_hash_version == 1:
+            for source in payload.get("sources", []):
+                for field in ("document_hash", "snippet_hash"):
+                    if source.get(field) is None:
+                        source.pop(field, None)
+        return payload

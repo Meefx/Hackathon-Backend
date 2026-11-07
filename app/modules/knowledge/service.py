@@ -6,11 +6,13 @@ from urllib.parse import urlparse
 from app.modules.knowledge import repository
 from app.modules.knowledge.audit import append_event
 from app.modules.knowledge.authorization import Actor, require
+from app.modules.knowledge.governance import artifact_result as _result
+from app.modules.knowledge.governance import assert_current_evidence  # noqa: F401
+from app.modules.knowledge.governance import validate_page as _validate_page
 from app.modules.knowledge.processing import (
     PROFILE,
     _hash,
     _instant,
-    _uuid,
     _vector_literal,
     chunk_sections,
     validate_knowledge,
@@ -29,22 +31,6 @@ ROLES = {
     "compliance",
     "admin",
 }
-
-
-def _result(row: dict) -> dict:
-    return {
-        "id": str(row["id"]),
-        "status": row["status"],
-        "content_hash": row["content_hash"],
-        "hash": row["content_hash"],
-    }
-
-
-def _validate_page(limit: int, offset: int) -> None:
-    if type(limit) is not int or not 1 <= limit <= 100:
-        raise TrustError("INVALID_LIMIT", status=422)
-    if type(offset) is not int or not 0 <= offset <= 9223372036854775807:
-        raise TrustError("INVALID_OFFSET", status=422)
 
 
 def ingest(conn, actor: Actor, data: dict, now: datetime) -> dict:
@@ -218,23 +204,6 @@ def retire(conn, actor: Actor, document_id: str, reason: str, now: datetime) -> 
         now,
     )
     return {**_result({**row, "status": "retired"}), "suspended_template_ids": ids}
-
-
-def assert_current_evidence(conn, actor: Actor, document_ids: list[str], now: datetime) -> None:
-    if not document_ids:
-        raise TrustError("EVIDENCE_REQUIRED")
-    for document_id in sorted(set(document_ids)):
-        row = repository.lock_current_document(
-            conn, (_uuid(document_id), actor.principal, actor.product)
-        )
-        if (
-            row["status"] != "approved"
-            or row["effective_from"] > now
-            or (row["effective_until"] is not None and now >= row["effective_until"])
-            or row["approved_hash"] != row["content_hash"]
-            or row["qa_hash"] != row["content_hash"]
-        ):
-            raise TrustError("EVIDENCE_NOT_CURRENT")
 
 
 def list_documents(conn, actor: Actor, *, limit: int = 100, offset: int = 0) -> list[dict]:

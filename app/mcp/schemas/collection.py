@@ -7,7 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.modules.conversations.schemas import DraftCandidate, Message
-from app.modules.knowledge_context.contracts import KnowledgeResult
+from app.modules.knowledge_context.contracts import KnowledgeSnapshot as CollectionKnowledgeSnapshot
 from app.modules.runs.schemas import ArtifactCandidate
 
 
@@ -39,13 +39,8 @@ class ContextRequest(Assignment):
     deadline_at: datetime
 
 
-class KnowledgeSnapshot(KnowledgeResult):
-    id: str
-    run_id: str
-    required: bool
-    retrieved_at: datetime
-    snapshot_hash: str
-    snapshot_hash_version: Literal[1, 2] = 1
+class KnowledgeSnapshot(CollectionKnowledgeSnapshot):
+    """Reuse the version-aware REST evidence serialization contract."""
 
 
 class DraftRequest(Assignment):

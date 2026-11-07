@@ -340,3 +340,146 @@ def test_mapping_revocation_precedes_compatibility_replay(database_url, trust_ac
             service.outreach(trust_actor("operator"), key, case["id"], template["id"])
         with connect(database_url) as conn:
             assert conn.execute("SELECT count(*) AS n FROM dispatch_receipts").fetchone()["n"] == 1
+
+
+def test_canonical_replay_denies_revoked_legacy_mapping(database_url, trust_actor, trust_now):
+    from app.modules.conversations.compatibility import collection_settings
+
+    with connect(database_url) as conn:
+        document, template, case = scenario(conn, trust_actor, trust_now)
+        candidate = prepared(conn, trust_actor, trust_now, template, case)
+        settings = collection_settings(conn, APPROVAL_SECRET).model_copy(
+            update={"database_url": database_url}
+        )
+    key = request()
+    first = gate.simulate_dispatch(
+        settings, candidate["attempt_id"], key, Caller(), FrozenClock(trust_now)
+    )
+    assert first["status"] == "simulated_sent"
+    # A committed successful response remains idempotent after evidence retirement
+    # while account mapping and caller authorization are still legitimate.
+    from app.trust import knowledge
+
+    with connect(database_url) as conn:
+        knowledge.retire(
+            conn, trust_actor("compliance"), document["id"], "Synthetic retirement", trust_now
+        )
+    assert (
+        gate.simulate_dispatch(
+            settings, candidate["attempt_id"], key, Caller(), FrozenClock(trust_now)
+        )
+        == first
+    )
+    with connect(database_url) as conn:
+        conn.execute("DELETE FROM legacy_case_account_mappings WHERE case_id=%s", (case["id"],))
+    with pytest.raises(DomainError) as failure:
+        gate.simulate_dispatch(
+            settings, candidate["attempt_id"], key, Caller(), FrozenClock(trust_now)
+        )
+    assert failure.value.code == "legacy_case_mapping_required"
+    with connect(database_url) as conn:
+        assert conn.execute("SELECT count(*) AS n FROM dispatch_receipts").fetchone()["n"] == 1
+
+
+def test_legacy_hold_requires_authority_resolution_before_local_resume(
+    database_url, trust_actor, trust_now
+):
+    from app.modules.cases.schemas import CaseActionRequest
+    from app.modules.reviews.schemas import ReviewResolution
+    from app.modules.reviews.service import case_action, open_review, resolve_review
+
+    with connect(database_url) as conn:
+        _, _, case = scenario(conn, trust_actor, trust_now)
+        review_id = open_review(conn, case["account_id"], "hardship", trust_now)
+        conn.execute(
+            "UPDATE trust.cases SET context=jsonb_set(context,'{state}',"
+            "'\"escalated\"') WHERE id=%s",
+            (case["id"],),
+        )
+    resolved = resolve_review(
+        get_settings(),
+        review_id,
+        ReviewResolution(
+            decision="keep_paused",
+            expected_version=1,
+            note="Keep local operator hold",
+            idempotency_key=uuid4(),
+        ),
+        Caller(),
+        trust_now,
+    )
+    blocked = case_action(
+        get_settings(),
+        case["account_id"],
+        CaseActionRequest(
+            expected_case_version=resolved["case"]["case_version"],
+            note="Attempt local resume",
+            idempotency_key=uuid4(),
+        ),
+        Caller(),
+        trust_now,
+    )
+    assert not blocked["action_applied"]
+    assert blocked["contact_state"] == "paused_operator"
+    assert "legacy_case_paused" in blocked["reason_codes"]
+    with connect(database_url) as conn:
+        conn.execute(
+            "UPDATE trust.cases SET context=jsonb_set(context,'{state}','\"active\"') WHERE id=%s",
+            (case["id"],),
+        )
+    resumed = case_action(
+        get_settings(),
+        case["account_id"],
+        CaseActionRequest(
+            expected_case_version=blocked["case_version"],
+            note="Resume after authority resolution",
+            idempotency_key=uuid4(),
+        ),
+        Caller(),
+        trust_now,
+    )
+    assert resumed["action_applied"]
+    assert resumed["contact_state"] == "active"
+
+
+def test_local_resume_still_checks_holiday_gate(database_url):
+    from psycopg.types.json import Jsonb
+
+    from app.modules.cases.schemas import CaseActionRequest
+    from app.modules.reviews.schemas import ReviewResolution
+    from app.modules.reviews.service import case_action, open_review, resolve_review
+    from app.seed import seed
+
+    seed()
+    with connect(database_url) as conn:
+        review_id = open_review(conn, "CF-1001", "hardship", NOW)
+        conn.execute(
+            "UPDATE collection_authorities SET holidays=%s WHERE account_id='CF-1001'",
+            (Jsonb([NOW.date().isoformat()]),),
+        )
+    resolved = resolve_review(
+        get_settings(),
+        review_id,
+        ReviewResolution(
+            decision="keep_paused",
+            expected_version=1,
+            note="Keep operator hold",
+            idempotency_key=uuid4(),
+        ),
+        Caller(),
+        NOW,
+    )
+    blocked = case_action(
+        get_settings(),
+        "CF-1001",
+        CaseActionRequest(
+            expected_case_version=resolved["case"]["case_version"],
+            note="Attempt holiday resume",
+            idempotency_key=uuid4(),
+        ),
+        Caller(),
+        NOW,
+    )
+    assert not blocked["action_applied"]
+    assert blocked["contact_state"] == "paused_operator"
+    assert "holiday" in blocked["reason_codes"]

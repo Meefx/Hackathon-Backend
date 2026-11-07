@@ -10,7 +10,7 @@
 
 **Spec:** [Rencana backend existing](2026-11-07-agentic-collection-skeleton.md), terutama B1/B3/B4/B5/B7; [rencana lintas-repo](../../../../docs/superpowers/plans/2026-11-07-agentic-collection-system-plan.md), terutama batas KM dan M4; [product overview](../../../../00_Product_Overview.md); [PR #1](https://github.com/Meefx/Hackathon-Backend/pull/1) pada `77cc1b4f715d700d994967d221551437ea64c71b`.
 
-**Status:** Rencana untuk review user pada 7 November 2026. Belum ada perubahan kode aplikasi, merge, commit, atau perubahan database pada review ini. Keputusan struktur berikut adalah rekomendasi implementasi, belum hasil implementasi.
+**Status:** Implementasi disetujui user pada 7 November 2026. History PR sudah digabungkan pada branch kerja melalui commit `db3021f`. Producer, gateway, migration, gate kanonis dan frontend telah diimplementasikan. Verifikasi akhir dan catatan perubahan berada pada bagian hasil eksekusi di akhir dokumen.
 
 ## Global Constraints
 
@@ -208,7 +208,7 @@ Ekstraksi hanya untuk area yang disentuh. Jangan membuat file kosong atau merapi
 - [ ] Dokumentasikan enabled/configured/healthy secara jujur, migration/seed/worker/MCP startup dan independent secrets. Perbarui plan existing dengan evidence; Hermes aktual, classifier live, semantic embeddings, 50-persona evaluation dan real provider tidak otomatis dianggap selesai oleh PR ini.
 - [ ] Periksa final diff, status kedua repo dan secret/conflict-marker checks. Review branch gabungan sebelum merge ke `main`; hasil CI PR lama bukan bukti untuk branch gabungan. Ringkas perubahan API trust dan frontend yang benar-benar terjadi.
 
-## Bukti review ini dan batas verifikasi
+## Bukti review awal dan batas verifikasi saat perencanaan
 
 - Git status kedua repo, README/AGENTS, plan, implementation serta tests relevan dibaca. PR diunduh sebagai snapshot sementara; checkout lokal tidak diganti.
 - GitHub PR #1 head `77cc1b4` dilaporkan mergeable terhadap `main`.
@@ -220,4 +220,18 @@ Ekstraksi hanya untuk area yang disentuh. Jangan membuat file kosong atau merapi
 
 ## Hasil yang diminta untuk review user
 
-Setujui arah integrasi: producer KMS PR + satu runtime collection existing yang diperkuat, bukan dua backend paralel. Setelah review plan, implementasi dapat dilanjutkan di branch kerja dengan verifikasi di atas; merge `main` dilakukan setelah branch gabungan siap direview.
+User menyetujui integrasi producer KMS PR dan runtime collection kanonis pada turn berikutnya. Implementasi berjalan pada branch kerja dengan verifikasi yang dicatat pada hasil eksekusi.
+
+
+## Hasil eksekusi 7 November 2026
+
+- History PR77cc1b4 digabungkan melalui db3021f, kemudian producer/gateway, gate kanonis dan consumer frontend dikonsolidasikan.
+- Migration head `0005_knowledge_collection` menggabungkan `0002_trust` dan `0003_review_holds` melalui merge revision0004. Test preservation mencakup portfolio, collection run/snapshot v1 serta approved source/chunk dan hash-chain KMS.
+- Suite backend gabungan lulus501tests dengan satu deprecation warning Starlette/httpx sebelum pemeriksaan tambahan lifecycle opsional dan serialisasi snapshot lama. Perubahan terakhir diverifikasi dengan suite terarah API, migration dan protokol.
+- Ruff dan mypy seluruh111sourcefiles lulus. Frontend typecheck, production build terisolasi dan42browserfixturetests lulus.
+- Browser journey KMS aktual lulus dengan PostgreSQLpgvector disposable, API8010, worker dan frontendproduction3110. Approved critical source masuk snapshotv2, reload/retirement mempertahankan snapshot, dispatch ditolak dengan knowledge_reference_invalid.
+- Reviewer memeriksa producer, transaksi gate, frontend dan integrasi akhir. Perbaikan mencakup deadline perSQL, importcycle, mapping-before-replay, resume hold, cachecitation saat versi berubah, lifecycle KMS opsional dan kompatibilitas snapshotv1.
+- Driver PostgreSQL memakai minimum connect timeout dua detik. Deadline lebih pendek dapat terlampaui selama pembentukan koneksi sampai batas minimum itu. Deadline statement/lock dan pemeriksaan sebelum commit memakai sisa budget.
+- Tests dan browser acceptance memakai data sintetis terisolasi. Konfigurasi in-process diaktifkan melalui factory pada runbook. Acceptance semantic retrieval, classifier live dan Hermes mengikuti milestone tersendiri.
+
+Runbook operasional berada di [knowledge-service.md](../../integrations/knowledge-service.md).

@@ -334,3 +334,140 @@ def test_different_knowledge_database_rejects_existing_evidence(
     )
     same = InProcessKnowledgeGateway(settings=equivalent, clock=lambda: trust_now)
     assert same.lock_references(trust_conn, result.sources, assigned).validate(trust_now).valid
+
+
+def test_database_budget_shrinks_after_scope_and_ranking(
+    monkeypatch, trust_conn, trust_actor, assigned, trust_now
+):
+    from app.integrations.knowledge import trust_adapter
+    from app.modules.knowledge import repository
+
+    approved_document(
+        trust_conn, trust_actor, trust_now, access_roles=["operator"], criticality="critical"
+    )
+    clock = [trust_now]
+    original_scope = trust_adapter.resolve_actor
+    original_search = repository.search_chunks
+    original_expand = repository.expand_critical
+    observed = []
+
+    def scope(*args):
+        actor = original_scope(*args)
+        clock[0] = trust_now + timedelta(seconds=8)
+        return actor
+
+    def search(connection, parameters):
+        observed.append(
+            connection.execute(
+                "SELECT current_setting('statement_timeout')::interval <= interval '2 seconds' AS bounded"
+            ).fetchone()["bounded"]
+        )
+        rows = original_search(connection, parameters)
+        clock[0] = trust_now + timedelta(milliseconds=9500)
+        return rows
+
+    def expand(connection, parameters):
+        observed.append(
+            connection.execute(
+                "SELECT current_setting('statement_timeout')::interval <= interval '0.5 seconds' AS bounded"
+            ).fetchone()["bounded"]
+        )
+        return original_expand(connection, parameters)
+
+    monkeypatch.setattr(trust_adapter, "resolve_actor", scope)
+    monkeypatch.setattr(repository, "search_chunks", search)
+    monkeypatch.setattr(repository, "expand_critical", expand)
+    gateway = InProcessKnowledgeGateway(clock=lambda: clock[0])
+    assert gateway.query_with_connection(trust_conn, query(trust_now), assigned).status == "ready"
+    assert observed == [True, True]
+
+
+def test_expired_lock_budget_prevents_ranking(monkeypatch, trust_conn, assigned, trust_now):
+    clock = [trust_now]
+    original = knowledge.lock_governance
+
+    def wait(connection):
+        original(connection)
+        clock[0] = trust_now + timedelta(seconds=11)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Expired budget must not begin ranking")
+
+    monkeypatch.setattr(knowledge, "lock_governance", wait)
+    monkeypatch.setattr(knowledge, "retrieve", forbidden)
+    gateway = InProcessKnowledgeGateway(clock=lambda: clock[0])
+    assert (
+        gateway.query_with_connection(trust_conn, query(trust_now), assigned).reason_code
+        == "knowledge_deadline_exceeded"
+    )
+
+
+def test_deadline_after_audit_rolls_back_retrieval(
+    monkeypatch, trust_conn, trust_actor, assigned, trust_now
+):
+    from app.modules.knowledge import retrieval
+
+    approved_document(trust_conn, trust_actor, trust_now, access_roles=["operator"])
+    clock = [trust_now]
+    original = retrieval.append_event
+
+    def audit_then_expire(*args, **kwargs):
+        result = original(*args, **kwargs)
+        clock[0] = trust_now + timedelta(seconds=11)
+        return result
+
+    monkeypatch.setattr(retrieval, "append_event", audit_then_expire)
+    gateway = InProcessKnowledgeGateway(clock=lambda: clock[0])
+    assert (
+        gateway.query_with_connection(trust_conn, query(trust_now), assigned).reason_code
+        == "knowledge_deadline_exceeded"
+    )
+    assert (
+        trust_conn.execute(
+            "SELECT count(*) AS n FROM trust.audit_events WHERE event_type='knowledge.retrieved'"
+        ).fetchone()["n"]
+        == 0
+    )
+
+
+def test_outer_query_deadline_prevents_commit(
+    monkeypatch, trust_conn, trust_actor, assigned, trust_now
+):
+    approved_document(trust_conn, trust_actor, trust_now, access_roles=["operator"])
+    trust_conn.commit()
+    clock = [trust_now]
+    gateway = InProcessKnowledgeGateway(clock=lambda: clock[0])
+    original = gateway.query_with_connection
+
+    def expire_before_commit(*args, **kwargs):
+        result = original(*args, **kwargs)
+        assert result.status == "ready"
+        clock[0] = trust_now + timedelta(seconds=11)
+        return result
+
+    monkeypatch.setattr(gateway, "query_with_connection", expire_before_commit)
+    result = gateway.query_approved(query(trust_now), assigned)
+    assert result.reason_code == "knowledge_deadline_exceeded"
+    assert (
+        trust_conn.execute(
+            "SELECT count(*) AS n FROM trust.audit_events WHERE event_type='knowledge.retrieved'"
+        ).fetchone()["n"]
+        == 0
+    )
+
+
+def test_idle_connection_is_denied_without_committing_retrieval(
+    trust_conn, trust_actor, assigned, trust_now
+):
+    approved_document(trust_conn, trust_actor, trust_now, access_roles=["operator"])
+    trust_conn.commit()
+    gateway = InProcessKnowledgeGateway(clock=lambda: trust_now)
+    result = gateway.query_with_connection(trust_conn, query(trust_now), assigned)
+    assert result.reason_code == "knowledge_transaction_required"
+    trust_conn.rollback()
+    assert (
+        trust_conn.execute(
+            "SELECT count(*) AS n FROM trust.audit_events WHERE event_type='knowledge.retrieved'"
+        ).fetchone()["n"]
+        == 0
+    )

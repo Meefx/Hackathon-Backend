@@ -82,7 +82,7 @@ def lock_template(conn, actor: Actor, template_id: str, at: datetime) -> dict:
     """Lock all dependencies before the template, preserving native producer order."""
     require(actor, "knowledge:read")
     repository.lock_governance(conn)
-    from app.modules.knowledge.service import assert_current_evidence
+    from app.modules.knowledge.governance import assert_current_evidence
     from app.modules.knowledge.templates import get_template
 
     ids = repository._evidence_ids(conn, _uuid(template_id))

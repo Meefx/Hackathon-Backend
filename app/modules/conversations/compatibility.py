@@ -1,12 +1,15 @@
 """Explicit legacy-to-account bridge. New effects use collection storage only."""
 
 import hashlib
+from datetime import datetime
+from typing import Any
 from uuid import UUID, uuid4
 
+from psycopg import Connection
 from psycopg.types.json import Jsonb
 from pydantic import SecretStr
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.integrations.knowledge.trust_adapter import InProcessKnowledgeGateway
 from app.modules.audit.service import append_event
 from app.modules.cases.repository import lock_case
@@ -25,7 +28,9 @@ from app.trust.safety import screen_message
 from app.trust.security import Actor, require
 
 
-def mapped_account(connection, actor, case_id):
+def mapped_account(
+    connection: Connection[dict[str, Any]], actor: Actor, case_id: str | UUID
+) -> dict:
     row = connection.execute(
         "SELECT c.*,m.account_id FROM trust.cases c "
         "JOIN legacy_case_account_mappings m ON m.case_id=c.id "
@@ -45,7 +50,7 @@ def mapped_account(connection, actor, case_id):
     return row
 
 
-def collection_settings(connection, secret):
+def collection_settings(connection: Connection[dict[str, Any]], secret: str) -> Settings:
     # The compatibility transaction never opens another operational connection.
     return get_settings().model_copy(
         update={
@@ -57,15 +62,31 @@ def collection_settings(connection, secret):
     )
 
 
-def bound_evidence(connection, persisted, account_id):
-    if not persisted or len(persisted["evidence_references"]) != 1:
-        raise DomainError("approval_invalid")
-    envelope = persisted["evidence_references"][0]
-    current = get_authority(connection, account_id)
-    actor = Actor("local-operator", "operator", current["principal"], current["product"])
-    mapped = mapped_account(connection, actor, envelope["legacy_case_id"])
-    if mapped["account_id"] != account_id:
+def authorize_legacy_binding(
+    connection: Connection[dict[str, Any]], persisted: dict | None, account_id: str
+) -> None:
+    try:
+        if not persisted or len(persisted["evidence_references"]) != 1:
+            raise DomainError("legacy_case_mapping_required")
+        envelope = persisted["evidence_references"][0]
+        current = get_authority(connection, account_id)
+        actor = Actor("local-operator", "operator", current["principal"], current["product"])
+        mapped = mapped_account(connection, actor, envelope["legacy_case_id"])
+        if mapped["account_id"] != account_id:
+            raise DomainError("legacy_case_mapping_required")
+    except (DomainError, TrustError, KeyError, TypeError, ValueError) as exc:
+        raise DomainError(
+            "legacy_case_mapping_required", "Legacy account mapping is required"
+        ) from exc
+
+
+def bound_evidence(
+    connection: Connection[dict[str, Any]], persisted: dict | None, account_id: str
+) -> tuple[dict, list[KnowledgeSource]]:
+    authorize_legacy_binding(connection, persisted, account_id)
+    if not persisted:
         raise DomainError("legacy_case_mapping_required")
+    envelope = persisted["evidence_references"][0]
     result = KnowledgeResult.model_validate(envelope["result"])
     payload = result.model_dump(mode="json")
     validate_snapshot_integrity(
@@ -81,7 +102,16 @@ def bound_evidence(connection, persisted, account_id):
     }, [KnowledgeSource.model_validate(source) for source in payload["sources"]]
 
 
-def prepare_legacy(connection, actor, case_id, template_id, key, secret, clock, layer2):
+def prepare_legacy(
+    connection: Connection[dict[str, Any]],
+    actor: Actor,
+    case_id: str | UUID,
+    template_id: str | UUID,
+    key: str | UUID,
+    secret: str,
+    clock: Any,
+    layer2: Any,
+) -> dict:
     from app.modules.conversations.dispatch import current_time
 
     require(actor, "attempt:create")
@@ -137,6 +167,8 @@ def prepare_legacy(connection, actor, case_id, template_id, key, secret, clock, 
     account = connection.execute(
         "SELECT * FROM accounts WHERE id=%s", (mapped["account_id"],)
     ).fetchone()
+    if not account:
+        raise DomainError("not_found", "Account not found", 404)
     text = render_message(template["body"], account)
     delivered = connection.execute(
         "SELECT 1 FROM dispatch_receipts WHERE account_id=%s LIMIT 1", (mapped["account_id"],)
@@ -222,7 +254,9 @@ def prepare_legacy(connection, actor, case_id, template_id, key, secret, clock, 
     return response
 
 
-def dispatch_legacy(connection, actor, prepared, secret, clock):
+def dispatch_legacy(
+    connection: Connection[dict[str, Any]], actor: Actor, prepared: dict, secret: str, clock: Any
+) -> dict:
     from app.modules.conversations.dispatch import dispatch_message
 
     require(actor, "attempt:create")
@@ -253,6 +287,8 @@ def dispatch_legacy(connection, actor, prepared, secret, clock):
     message = connection.execute(
         "SELECT * FROM collection_messages WHERE id=%s", (prepared["attempt_id"],)
     ).fetchone()
+    if not message:
+        raise DomainError("not_found", "Message not found", 404)
     if message["account_id"] != mapped["account_id"]:
         raise TrustError("legacy_case_mapping_required", 409)
     if prepared.get("text") != message["text"]:
@@ -279,7 +315,13 @@ def dispatch_legacy(connection, actor, prepared, secret, clock):
     }
 
 
-def receive_legacy(connection, actor, case_id, text, now):
+def receive_legacy(
+    connection: Connection[dict[str, Any]],
+    actor: Actor,
+    case_id: str | UUID,
+    text: str,
+    now: datetime,
+) -> dict:
     from app.modules.reviews.service import open_review
 
     require(actor, "conversation:write")
@@ -319,7 +361,9 @@ def receive_legacy(connection, actor, case_id, text, now):
     }
 
 
-def read_legacy(connection, actor, case_id):
+def read_legacy(
+    connection: Connection[dict[str, Any]], actor: Actor, case_id: str | UUID
+) -> list[dict]:
     require(actor, "conversation:read")
     mapped = mapped_account(connection, actor, case_id)
     from app.modules.conversations.redaction import sanitize_conversation

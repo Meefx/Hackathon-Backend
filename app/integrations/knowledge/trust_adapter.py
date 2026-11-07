@@ -4,10 +4,13 @@ from datetime import datetime
 
 import psycopg
 from psycopg.conninfo import conninfo_to_dict
+from psycopg.pq import TransactionStatus
+from psycopg.rows import dict_row
 from pydantic import ValidationError
 
 from app.config import get_settings
 from app.db.connection import connect
+from app.integrations.knowledge.deadline import BudgetedConnection, QueryBudget
 from app.integrations.knowledge.scope import resolve_actor
 from app.modules.knowledge import service as producer
 from app.modules.knowledge_context.contracts import (
@@ -117,11 +120,27 @@ class InProcessKnowledgeGateway:
                 "knowledge_configuration_invalid", "Knowledge requires the collection database", 503
             )
 
+    def _query_budget(self, request):
+        return QueryBudget(
+            request.deadline_at, self._now, self._settings().database_statement_timeout_ms
+        )
+
     def query_approved(self, request, caller):
         try:
             self._check_configuration()
-            with connect(self._settings().database_url) as connection:
-                return self.query_with_connection(connection, request, caller)
+            request = KnowledgeQuery.model_validate(request)
+            budget = self._query_budget(request)
+            remaining = budget.remaining_ms()
+            # Installed psycopg/libpq enforces a two-second minimum connection timeout.
+            timeout = max(2, min(5, remaining // 1000))
+            with psycopg.connect(
+                self._settings().database_url, row_factory=dict_row, connect_timeout=timeout
+            ) as connection:
+                budget.remaining_ms()
+                with connection.transaction():
+                    result = self.query_with_connection(connection, request, caller)
+                    budget.prepare(connection)
+                    return result
         except (psycopg.Error, TrustError, DomainError, ValidationError) as exc:
             return self._failure(exc)
 
@@ -138,34 +157,40 @@ class InProcessKnowledgeGateway:
         return KnowledgeResult(status="error", source_mode="knowledge_module", reason_code=reason)
 
     def query_with_connection(self, connection, request, caller):
+        """Use a savepoint inside an active, non-autocommit caller transaction."""
         try:
+            if (
+                connection.autocommit
+                or connection.info.transaction_status != TransactionStatus.INTRANS
+            ):
+                raise DomainError(
+                    "knowledge_transaction_required",
+                    "Knowledge requires an active caller transaction",
+                    503,
+                )
             self._check_configuration()
             request = KnowledgeQuery.model_validate(request)
-            remaining = (request.deadline_at - self._now()).total_seconds()
-            if remaining <= 0:
-                raise DomainError("knowledge_deadline_exceeded", "Knowledge deadline exceeded")
-            # Both ranking and lock waiting are bounded by the remaining request budget.
-            budget = max(
-                1, min(int(remaining * 1000), self._settings().database_statement_timeout_ms)
-            )
-            connection.execute(
-                "SELECT set_config('statement_timeout',%s,true),set_config('lock_timeout',%s,true)",
-                (str(budget), str(budget)),
-            )
-            actor = resolve_actor(connection, caller, self._now())
-            producer.lock_governance(connection)
-            if self._now() >= request.deadline_at:
-                raise DomainError("knowledge_deadline_exceeded", "Knowledge deadline exceeded")
-            native = producer.retrieve(connection, actor, request.query, self._now(), request.top_k)
-            if self._now() >= request.deadline_at:
-                raise DomainError("knowledge_deadline_exceeded", "Knowledge deadline exceeded")
-            return KnowledgeResult(
-                status="ready" if native["results"] else "no_results",
-                source_mode="knowledge_module",
-                sources=[map_source(row) for row in native["results"]],
-                critical_context=native["critical_context"],
-                verification_profile=native["verification_profile"],
-            )
+            budget = self._query_budget(request)
+            budget.remaining_ms()
+            # A timeout after audit insertion must roll back that retrieval's writes as well.
+            with connection.transaction():
+                bounded = BudgetedConnection(connection, budget)
+                actor = resolve_actor(bounded, caller, self._now())
+                producer.lock_governance(bounded)
+                budget.remaining_ms()
+                native = producer.retrieve(
+                    bounded, actor, request.query, self._now(), request.top_k
+                )
+                budget.remaining_ms()
+                result = KnowledgeResult(
+                    status="ready" if native["results"] else "no_results",
+                    source_mode="knowledge_module",
+                    sources=[map_source(row) for row in native["results"]],
+                    critical_context=native["critical_context"],
+                    verification_profile=native["verification_profile"],
+                )
+                budget.prepare(connection)
+                return result
         except (TrustError, DomainError, ValidationError) as exc:
             return self._failure(exc)
 

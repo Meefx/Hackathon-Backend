@@ -5,13 +5,15 @@ from datetime import datetime
 from app.modules.knowledge import repository
 from app.modules.knowledge.audit import append_event
 from app.modules.knowledge.authorization import Actor, require
+from app.modules.knowledge.governance import artifact_result as _result
+from app.modules.knowledge.governance import assert_current_evidence
+from app.modules.knowledge.governance import validate_page as _validate_page
 from app.modules.knowledge.processing import (
     _hash,
     _uuid,
     validate_knowledge,
 )
 from app.modules.knowledge.repository import _document, _evidence_ids, _template
-from app.modules.knowledge.service import _result, _validate_page, assert_current_evidence
 from app.trust.errors import TrustError
 
 
