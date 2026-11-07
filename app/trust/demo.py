@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.core.clock import FrozenClock
+from app.modules.conversations.demo import provision_synthetic_case
 from app.trust.app import create_trust_app
 from app.trust.settings import TrustSettings
 
@@ -28,6 +29,8 @@ def demo_settings():
 
 def run_scenario(client):
     tokens = {}
+    service = client.app.state.trust_service
+    clock = client.app.state.trust_clock
 
     def call(role, method, path, data=None, key=None):
         if role not in tokens:
@@ -97,7 +100,7 @@ def run_scenario(client):
             "note": "Scripted human role approves exact synthetic template",
         },
     )
-    case = call("operator", "POST", "/cases", {"is_synthetic": True})
+    case = provision_synthetic_case(service.settings.database_url, clock.now())
     key = str(uuid4())
     first = call(
         "operator", "POST", f"/cases/{case['id']}/outreach", {"template_id": template["id"]}, key
@@ -115,7 +118,7 @@ def run_scenario(client):
     )
     # Reuse the search key deliberately: retired knowledge must not come from a cache.
     after = call("personal", "POST", "/knowledge/search", {"query": "polite reminder"}, search_key)
-    case2 = call("operator", "POST", "/cases", {"is_synthetic": True})
+    case2 = provision_synthetic_case(service.settings.database_url, clock.now())
     blocked = call(
         "operator", "POST", f"/cases/{case2['id']}/outreach", {"template_id": template["id"]}
     )

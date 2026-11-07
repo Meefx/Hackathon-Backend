@@ -9,8 +9,8 @@ di-clone sendiri. Instruksi langsung user mengungguli panduan ini.
 Stack aktual: Python 3.12+, FastAPI, Pydantic/pydantic-settings, PostgreSQL 17
 melalui psycopg, pgvector, Alembic, uv, pytest, dan Ruff. SQLAlchemy dipakai oleh Alembic
 untuk migration, bukan ORM runtime. Docker Compose menyediakan PostgreSQL,
-migration one-shot, backend, dan profil database test. Queue, worker, dan
-SDK/server/client MCP **belum tersedia**.
+migration one-shot, backend, dan profil database test. Durable PostgreSQL queue/worker dan SDK MCP Streamable HTTP tersedia untuk demo sintetis.
+MCP memakai listener terpisah pada port 8002; REST operator tetap lokal pada 8000.
 
 Saat ini `app/main.py` merangkai HTTP, `app/schemas.py` mempertahankan kontrak
 respons, `app/db/connection.py` memiliki transaksi/readiness,
@@ -140,9 +140,10 @@ tests/
 
 ### Scope dan arsitektur
 
-Bagian ini adalah standar implementasi mendatang, bukan pernyataan bahwa MCP
-sudah aktif. Penambahan SDK, transport, autentikasi, dan command menjalankan
-server harus dilakukan serta didokumentasikan saat implementasinya dibuat.
+Server MCP sekarang di `app/mcp/`, menggunakan SDK Python Streamable HTTP dan
+principal bearer ber-expiry. Panduan operasional aktual ada di
+`docs/integrations/hermes-mcp.md`. REST dan MCP memakai public facade
+`app/modules/collection/service.py`; facade tetap meneruskan operasi ke domain pemilik.
 
 - **MCP server** menyediakan kemampuan backend ke agent/client melalui
   `app/mcp/`. **MCP client** mengonsumsi server eksternal melalui
@@ -275,7 +276,12 @@ server harus dilakukan serta didokumentasikan saat implementasinya dibuat.
 Alembic tersedia dan menjadi satu-satunya pemilik DDL. Baseline
 `migrations/versions/0001_accounts.py` membuat tabel accounts PostgreSQL dengan
 PK, UNIQUE loan reference, CHECK nominal nonnegatif, tipe BIGINT IDR, DATE,
-dan index `(due_date, id)`. Koneksi runtime memakai psycopg melalui Settings
+dan index `(due_date, id)`. Revision `0002_collection_state` menambah case, policy, session, run/job/event,
+knowledge snapshot, message/approval, review, receipt, dan hash-chain audit tanpa mengubah
+field portfolio. Data demo tidak dimasukkan migration; `app.seed` memprovisikan
+recipient sintetis serta policy fixture secara eksplisit.
+
+Koneksi runtime memakai psycopg melalui Settings
 `DATABASE_URL`. Startup dan seed tidak membuat atau memperbarui schema.
 `/health` memeriksa liveness, sedangkan `/ready` memeriksa koneksi dan revision
 schema. Revision `0002_trust` menambahkan KMS, runtime simulasi dan audit; `0003_source_archive` menambahkan arsip sumber publik immutable dan provenance kutipan. Startup trust juga memeriksa kesiapan. Perbarui `REQUIRED_REVISION` di `app/db/connection.py` saat head berubah.
@@ -384,10 +390,14 @@ ada; test unit tidak membuktikan integrasi eksternal atau migration nyata.
 
 - Erwan owns the KMS, guardrails, security and data-processing contribution.
   Read `docs/TRUST_MVP.md` and `docs/SECURITY.md` before safety changes.
-- All UI/API and synthetic borrower copy is English, per direct user instruction.
+- Portal UI/API copy stays English. Main collection drafts and borrower explanations
+  follow the Indonesian product contract. Standalone trust examples retain their
+  English synthetic fixtures.
 - Never read, print, edit or commit `.env`/`.env.*` except `.env.example`, or
   `*.pem`/`*.key`. Never log tokens, raw borrower text or approval material.
-- Only `app/services/dispatch_gate.py` imports channels. No model side-effect tools.
+- Only `app/modules/conversations/dispatch.py` imports the channel gateway.
+  `app/services/dispatch_gate.py` is a compatibility adapter to that domain gate.
+  No model side-effect tools.
   Preserve every safety invariant and regression; injected domain clock is mandatory.
 - Hash vectors and Layer 2 are declared demo baselines; do not claim model quality.
 - Trust tables use a fixed schema: DB-backed tests use disposable databases ending

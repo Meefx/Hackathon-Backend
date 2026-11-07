@@ -1,12 +1,12 @@
 import pytest
 
-from app.trust.errors import TrustError
-from app.trust.processing import (
+from app.modules.knowledge.processing import (
     MAX_KNOWLEDGE_CHARS,
     chunk_sections,
-    sanitize_conversation,
     validate_knowledge,
 )
+from app.trust.errors import TrustError
+from app.trust.processing import sanitize_conversation
 
 
 @pytest.mark.parametrize(

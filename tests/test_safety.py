@@ -1,4 +1,3 @@
-import hashlib
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from uuid import UUID
@@ -456,58 +455,87 @@ def test_signing_rejects_weak_secret_and_invalid_ttl():
 
 def test_dispatch_rechecks_clock_after_blocking_state_locks(monkeypatch):
     """A lock wait crossing closing time invalidates an earlier approval."""
-    from app.services import dispatch_gate as gate
-    from app.trust.security import Actor
+    from app.config import get_settings
+    from app.modules.conversations import dispatch as gate
+    from app.modules.conversations.schemas import DispatchRequest
+    from app.shared.caller import Caller
 
     before_close = datetime(2026, 11, 9, 12, 59, 59, tzinfo=UTC)
     after_close = before_close + timedelta(seconds=2)
     clock = SimpleNamespace(value=before_close)
     clock.now = lambda: clock.value
-    actor = Actor("synthetic-clock-test", "operator", "cf", "spaylater")
-    attempt_id = UUID("10000000-0000-0000-0000-000000000001")
-    case_id = UUID("20000000-0000-0000-0000-000000000001")
-    template_id = UUID("30000000-0000-0000-0000-000000000001")
-    evidence = [{"id": "40000000-0000-0000-0000-000000000001", "version": 1}]
-    attempt = {
-        "id": attempt_id,
-        "status": "APPROVED",
-        "evidence": evidence,
-        "template_id": template_id,
-        "case_id": case_id,
-        "case_version": 1,
-        "text_sha256": hashlib.sha256(b"Please use the app.").hexdigest(),
-        "policy_version": "collections-policy-v1",
+    message = {
+        "id": "synthetic-message",
+        "account_id": "CF-TEST",
+        "run_id": "synthetic-run",
+        "version": 1,
+        "text": "Please use the app.",
+        "citation_ids": ["citation"],
+        "status": "draft",
+        "direction": "outbound",
+        "channel": "simulated_chat",
     }
-    case = {"id": case_id, "version": 1, "borrower_ref": "synthetic-borrower"}
+    snapshot = {"snapshot_hash": "snapshot", "references": []}
+    persisted = {"snapshot_hash": "snapshot", "evidence_references": [], "template_binding": None}
 
     class FakeConnection:
         def execute(self, statement, params=()):
-            row = attempt if "FROM trust.attempts" in statement else {"id": "locked"}
+            row = message if "FROM collection_messages" in statement else None
             return SimpleNamespace(fetchone=lambda: row)
 
-    def blocking_case_lock(*args, **kwargs):
+    def blocking_authority_lock(*args):
         clock.value = after_close
-        return case
+
+    def evaluate(*args):
+        result = evaluate_contact(contact(data_verified_at=before_close.isoformat()), args[-1])
+        return {**result, "reason_codes": [code.lower() for code in result["reason_codes"]]}
 
     deliveries = []
-    monkeypatch.setattr(gate, "scoped_case", blocking_case_lock)
-    monkeypatch.setattr(gate, "get_template", lambda *args: {"evidence": evidence})
     monkeypatch.setattr(
         gate,
-        "contact_context",
-        lambda *args: contact(data_verified_at=before_close.isoformat()),
+        "get_gateway",
+        lambda *args: SimpleNamespace(
+            lock_references=lambda *args: SimpleNamespace(
+                validate=lambda at: SimpleNamespace(valid=True)
+            )
+        ),
     )
-    monkeypatch.setattr(gate, "append_event", lambda *args: None)
-    monkeypatch.setattr(gate, "verify_approval", lambda *args: None)
-    monkeypatch.setattr(gate, "deliver", lambda *args: deliveries.append(args) or "delivery")
-
-    result = gate.dispatch(
+    monkeypatch.setattr(gate, "validate_citations", lambda *args: (snapshot, []))
+    monkeypatch.setattr(gate, "message_binding", lambda *args, **kwargs: persisted)
+    monkeypatch.setattr(gate, "lock_case", lambda *args: {"recipient_id": "synthetic:recipient"})
+    monkeypatch.setattr(gate, "lock_contact_authority", blocking_authority_lock)
+    monkeypatch.setattr(gate, "evaluate_contact_policy", evaluate)
+    monkeypatch.setattr(gate, "replay", lambda *args: None)
+    monkeypatch.setattr(gate, "record", lambda *args: None)
+    monkeypatch.setattr(
+        gate,
+        "require_run",
+        lambda *args: {
+            "status": "completed",
+            "outcome": "draft_created",
+            "cancellation_requested_at": None,
+        },
+    )
+    monkeypatch.setattr(gate, "append_event", lambda *args, **kwargs: {"id": "audit-event"})
+    monkeypatch.setattr(
+        gate,
+        "ChannelGateway",
+        lambda: SimpleNamespace(
+            resolve=lambda channel: SimpleNamespace(
+                dispatch=lambda intent: deliveries.append(intent)
+            )
+        ),
+    )
+    result = gate.dispatch_message(
         FakeConnection(),
-        actor,
-        {"attempt_id": str(attempt_id), "text": "Please use the app.", "token": "test"},
-        SECRET,
+        get_settings(),
+        message["id"],
+        DispatchRequest(
+            expected_message_version=1, idempotency_key=UUID("10000000-0000-0000-0000-000000000001")
+        ),
+        Caller(),
         clock,
     )
-    assert result["status"] == "NOT_SENT"
-    assert "OUTSIDE_HOURS" in result["reason_codes"]
+    assert result["status"] == "blocked"
+    assert "outside_hours" in result["reason_codes"]
     assert deliveries == []

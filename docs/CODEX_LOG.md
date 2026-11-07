@@ -51,3 +51,19 @@ Exact command summaries and limitations are in 09_Implementation_Report.md.
 - Expanded full suite: `533 passed, 1 warning in 74.68s`; final manifest suite:
   `25 passed in 0.27s`. Ruff/mypy passed. Corrected source snapshots reimported;
   audit valid with 213 events. No external legal text was approved for retrieval.
+
+## Reconcile team main before the next PR
+
+- Fetched main `2f33388`. Its collection/MCP and canonical knowledge integration
+  advanced beyond the previously merged trust contribution. Preserved all team work.
+- Prepared a noncommitting merge; resolved three file conflicts and added the no-op
+  `0006_source_collection_merge` revision to join both published migration histories.
+- Moved source permissions into canonical authorization while retaining compatibility
+  imports; kept both MCP and PDF dependencies.
+- Integration tests exposed timezone-sensitive approval and per-account audit hashing.
+  Normalized serialization to UTC with tests for equivalent instants and tampering.
+- Populated upgrades from both published branch heads passed content preservation
+  checks. Exact final suite output is recorded in the implementation report.
+- Commit, push and PR creation remain with Erwan.
+- Final full suite: `692 passed, 1 warning in 143.27s`; Ruff passed, mypy passed
+  for 121 source files, one Alembic head, zero unresolved Git conflicts. Merge staged.

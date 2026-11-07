@@ -4,13 +4,16 @@ from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from psycopg import Error as DatabaseError
 
 from app.config import get_settings
 from app.db.connection import check_ready
 from app.modules.accounts.service import get_account, list_accounts
+from app.modules.collection.router import router as collection_router
 from app.modules.dashboard.service import summarize
 from app.schemas import Account, AccountPage, CollectionStatus, Dashboard, Health
+from app.shared.errors import DomainError
 from app.trust.app import configure_trust
 
 
@@ -25,9 +28,15 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
-        allow_methods=["GET", "POST"] if settings.trust_enabled else ["GET"],
+        allow_methods=["GET", "POST"],
         allow_headers=["Accept", "Content-Type", "Authorization", "Idempotency-Key"],
     )
+
+    app.include_router(collection_router)
+
+    @app.exception_handler(DomainError)
+    def domain_error_handler(request, exc):
+        return JSONResponse(status_code=exc.status, content={"detail": exc.detail()})
 
     def today():
         return datetime.now(ZoneInfo("Asia/Jakarta")).date()

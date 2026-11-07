@@ -1,9 +1,9 @@
 # Data trust MVP finalization report
 
 Observed on 7 November 2026 (WIB). Branch: `erwan-kms-guardrails-security`.
-The prior integration is committed at `77cc1b4`, with main through `b517c53`.
-The current regulatory-source contribution is uncommitted; Erwan will commit and push.
-Sections 1–5 record the prior integration. Section 6 records the source-ingestion work.
+The earlier integration is committed at `77cc1b4`; regulatory sources at `253135a`.
+The current reconciliation with main `2f33388` is staged; Erwan will commit and push.
+Sections 1–6 record prior work. Section 7 records the current reconciliation.
 
 ## 1. Result
 
@@ -185,3 +185,50 @@ Corrected manifest reimport: 19 existing snapshots replayed and six corrected sc
 snapshots appended. Current-manifest totals remain 96 drafts and five quarantine
 mappings; history contains 31 snapshots, 138 drafts and seven quarantine mappings.
 Final audit verification: valid, 213 events. External approved knowledge count: zero.
+
+## 7. Reconciliation with updated main before the next PR
+
+Main advanced to `2f33388` after the source contribution was committed and pushed
+as `253135a`. Pulling with `--ff-only` correctly refused the diverged history. A
+noncommitting merge integrates that exact main revision into the existing Erwan
+branch; commit and push remain with Erwan.
+
+Resolved conflicts in database readiness, authorization compatibility imports and
+dependencies. Retained the team's canonical knowledge producer, collection/worker/MCP
+integration, and both `mcp` and `pypdf` dependencies. Source reviewer capabilities
+now belong to the canonical authorization module, with the legacy facade re-exporting
+the same Actor and permission checks. No agent download tool was added.
+
+Published migration histories remain unchanged. New no-op revision
+`0006_source_collection_merge` joins `0003_source_archive` and
+`0005_knowledge_collection`. Readiness checks both collection and source tables.
+Tests upgrade populated databases from each published head and compare all prior
+table contents, then verify idempotent upgrade and the single resulting head.
+Two existing migration assertions now reference `REQUIRED_REVISION`, preserving
+their single-head and no-data-loss checks while accepting the new head.
+
+Initial integrated suite exposed a pre-existing timezone-dependent approval failure:
+an expiry signed in UTC was read from PostgreSQL in the session timezone and produced
+a different HMAC binding despite representing the same instant. `binding_for` now
+serializes aware expiries as UTC and rejects missing timezone information. Signature,
+content/evidence binding, expiry and fail-closed checks remain intact. Regression tests
+cover five timezones and ensure changing the actual expiry changes the signature.
+No persisted approval is rewritten or automatically renewed.
+
+The same timezone round-trip issue affected the team's per-account audit verifier.
+New audit timestamps and verification now use canonical UTC; missing/invalid timezone
+data fails verification. Database round-trip tests cover UTC, Jakarta and New York,
+and retain changed-time/outcome tampering rejection. Existing audit rows/hashes are
+never rewritten. Previously stored non-UTC timestamp representations may require
+separate historical-format investigation; no fallback accepts an unverifiable chain.
+The original `trust.audit_events` serializer already used UTC and is unchanged.
+
+Final observed checks: `692 passed, 1 warning in 143.27s (0:02:23)` for the full
+PostgreSQL/MCP/integration suite; `All checks passed!` from Ruff;
+`Success: no issues found in 121 source files` from mypy; `11 files already
+formatted`; Alembic `0006_source_collection_merge (head)`. The warning is the existing
+Starlette/httpx TestClient deprecation. Git reports no unresolved conflicts, no
+unstaged changes, and clean diff checks. All merge work is staged, with HEAD still
+`253135a` and MERGE_HEAD `2f33388`; no commit or push was performed by the agent.
+Existing application databases were not migrated during this PR reconciliation;
+upgrade tests used disposable databases containing synthetic data.

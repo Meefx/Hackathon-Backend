@@ -25,10 +25,10 @@ def test_dispatch_checks_capability_before_delivery_or_replay(
         dispatch(trust_conn, trust_actor(role), draft, APPROVAL_SECRET, FrozenClock(trust_now))
     assert failure.value.status == 403
     row = trust_conn.execute(
-        "SELECT count(*) AS n FROM trust.dispatches WHERE attempt_id=%s", (draft["attempt_id"],)
+        "SELECT count(*) AS n FROM dispatch_receipts WHERE message_id=%s", (draft["attempt_id"],)
     ).fetchone()
     assert row["n"] == int(already_delivered)
     attempt = trust_conn.execute(
-        "SELECT status FROM trust.attempts WHERE id=%s", (draft["attempt_id"],)
+        "SELECT status FROM collection_messages WHERE id=%s", (draft["attempt_id"],)
     ).fetchone()
-    assert attempt["status"] == ("DELIVERED" if already_delivered else "APPROVED")
+    assert attempt["status"] == ("simulated_sent" if already_delivered else "draft")

@@ -16,6 +16,7 @@ POLICY = "collections-policy-v1"
 ZONES = {"Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"}
 PLACEHOLDERS = {
     "amount_due",
+    "loan_reference",
     "due_date",
     "borrower_first_name",
     "lender_name",

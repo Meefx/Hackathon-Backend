@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.trust import knowledge
+from app.modules.knowledge import service as knowledge
 from app.trust.errors import TrustError
 from tests.test_knowledge import approved_document, approved_template, document_data
 

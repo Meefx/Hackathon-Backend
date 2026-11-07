@@ -3,11 +3,12 @@
 import ast
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import psycopg
 import pytest
 from fastapi.testclient import TestClient
+from psycopg.types.json import Jsonb
 
 from app.core.clock import FrozenClock
 from app.services.dispatch_gate import dispatch
@@ -16,11 +17,49 @@ from app.trust.app import create_trust_app
 from app.trust.audit import verify_chain
 from app.trust.db import connection
 from app.trust.pipeline import prepare
-from app.trust.runtime import create_case, receive_conversation
+from app.trust.runtime import receive_conversation
 from app.trust.screening import MockLayer2
 from app.trust.settings import TrustSettings
 
 APPROVAL_SECRET = "test-approval-material-" * 3
+
+
+def mapped_case(conn, actors, now, *, borrower_ref=None):
+    """Explicit administrative fixture for a pre-cutover synthetic case mapping."""
+    borrower = UUID(str(borrower_ref)) if borrower_ref else uuid4()
+    case_id, account_id = uuid4(), "CF-" + uuid4().hex
+    conn.execute(
+        "INSERT INTO accounts VALUES (%s,%s,%s,%s,%s,%s)",
+        (account_id, "Demo Borrower", "LN-" + account_id, 1250000, now.date(), "Demo Officer"),
+    )
+    conn.execute(
+        "INSERT INTO collection_policies VALUES ('demo-policy-v1',true,8,20,'2027-12-31',1,"
+        "'demo_fixture') ON CONFLICT DO NOTHING"
+    )
+    conn.execute(
+        "INSERT INTO collection_cases(account_id,recipient_id,recipient_verified,eligible) "
+        "VALUES (%s,%s,true,true)",
+        (account_id, "synthetic:" + account_id),
+    )
+    conn.execute(
+        "INSERT INTO collection_authorities VALUES "
+        "(%s,'cf','spaylater',%s,'Asia/Jakarta',true,true,false,true,%s,true,%s,%s)",
+        (account_id, borrower, now, Jsonb([2026, 2027]), Jsonb([])),
+    )
+    context = {
+        "state": "active",
+        "opted_out": False,
+        "verified": True,
+        "timezone": "Asia/Jakarta",
+        "borrower_owned": True,
+    }
+    conn.execute(
+        "INSERT INTO trust.cases(id,principal,product,borrower_ref,is_synthetic,context,facts,"
+        "created_at) VALUES (%s,'cf','spaylater',%s,true,%s,%s,%s)",
+        (case_id, borrower, Jsonb(context), Jsonb({"borrower_first_name": "Demo Borrower"}), now),
+    )
+    conn.execute("INSERT INTO legacy_case_account_mappings VALUES (%s,%s)", (case_id, account_id))
+    return {"id": str(case_id), "account_id": account_id, "borrower_ref": str(borrower)}
 
 
 def scenario(conn, actors, now, *, borrower_ref=None):
@@ -59,7 +98,7 @@ def scenario(conn, actors, now, *, borrower_ref=None):
     data = {"is_synthetic": True}
     if borrower_ref:
         data["borrower_ref"] = str(borrower_ref)
-    case = create_case(conn, actors("operator"), data, now)
+    case = mapped_case(conn, actors, now, borrower_ref=borrower_ref)
     return document, template, case
 
 
@@ -89,7 +128,8 @@ def test_inv_delivery_token_and_idempotency(trust_conn, trust_actor, trust_now):
     assert replay["idempotent_replay"] is True
     assert (
         trust_conn.execute(
-            "SELECT count(*) AS n FROM trust.dispatches WHERE attempt_id=%s", (first["attempt_id"],)
+            "SELECT count(*) AS n FROM dispatch_receipts WHERE message_id=%s",
+            (first["attempt_id"],),
         ).fetchone()["n"]
         == 1
     )
@@ -101,7 +141,10 @@ def test_inv_gate_revalidates(trust_conn, trust_actor, trust_now, change):
     _, template, case = scenario(trust_conn, trust_actor, trust_now)
     draft = prepared(trust_conn, trust_actor, trust_now, template, case)
     if change == "token":
-        draft["token"] = None
+        trust_conn.execute(
+            "UPDATE message_approvals SET attestation='invalid' WHERE message_id=%s",
+            (draft["attempt_id"],),
+        )
     elif change == "text":
         draft["text"] += " altered"
     else:
@@ -125,7 +168,8 @@ def test_inv_gate_revalidates(trust_conn, trust_actor, trust_now, change):
     assert result["status"] == "NOT_SENT"
     assert (
         trust_conn.execute(
-            "SELECT count(*) AS n FROM trust.dispatches WHERE attempt_id=%s", (draft["attempt_id"],)
+            "SELECT count(*) AS n FROM dispatch_receipts WHERE message_id=%s",
+            (draft["attempt_id"],),
         ).fetchone()["n"]
         == 0
     )
@@ -156,7 +200,9 @@ def test_inv_guardrail_outage_never_allows(trust_conn, trust_actor, trust_now):
     _, template, case = scenario(trust_conn, trust_actor, trust_now)
     draft = prepared(trust_conn, trust_actor, trust_now, template, case, layer2=BrokenClassifier())
     assert draft["status"] == "BLOCKED"
-    assert draft["token"] is None
+    assert not trust_conn.execute(
+        "SELECT 1 FROM message_approvals WHERE message_id=%s", (draft["attempt_id"],)
+    ).fetchone()
 
 
 @pytest.mark.parametrize(
@@ -176,7 +222,7 @@ def test_inv_append_only(trust_conn, trust_actor, trust_now, operation):
 def test_inv_only_gate_imports_channels():
     violations = []
     for path in Path("app").rglob("*.py"):
-        if path.as_posix() == "app/services/dispatch_gate.py":
+        if path.as_posix() == "app/modules/conversations/dispatch.py":
             continue
         tree = ast.parse(path.read_text())
         for node in ast.walk(tree):
@@ -187,7 +233,13 @@ def test_inv_only_gate_imports_channels():
                 if isinstance(node, ast.Import)
                 else []
             )
-            if any("services.channels" in module for module in modules):
+            if (
+                any(
+                    "integrations.channels" in module or "services.channels" in module
+                    for module in modules
+                )
+                and "app/integrations/channels/" not in path.as_posix()
+            ):
                 violations.append(str(path))
     assert violations == []
     issuers = []
@@ -199,7 +251,10 @@ def test_inv_only_gate_imports_channels():
                 and node.func.id == "issue_approval"
             ):
                 issuers.append(path.as_posix())
-    assert issuers == ["app/trust/screening.py"]
+    assert sorted(issuers) == [
+        "app/modules/compliance/screening.py",
+        "app/trust/screening.py",
+    ]
 
 
 def test_new_domain_uses_injected_clock():
@@ -234,7 +289,7 @@ def test_inv_concurrent_gate_delivers_once(trust_dsn, trust_actor, trust_now):
     with connection(trust_dsn) as conn:
         assert (
             conn.execute(
-                "SELECT count(*) AS n FROM trust.dispatches WHERE attempt_id=%s",
+                "SELECT count(*) AS n FROM dispatch_receipts WHERE message_id=%s",
                 (draft["attempt_id"],),
             ).fetchone()["n"]
             == 1
@@ -271,19 +326,16 @@ def test_retirement_racing_dispatch_has_one_authoritative_order(trust_dsn, trust
         outcomes = list(executor.map(worker, ["retire", "dispatch"]))
     assert outcomes[1]["status"] in {"DELIVERED", "NOT_SENT"}
     with connection(trust_dsn) as conn:
-        retired = conn.execute(
-            "SELECT seq FROM trust.audit_events WHERE event_type='knowledge.retired' AND payload->>'document_id'=%s",
-            (document["id"],),
-        ).fetchone()["seq"]
-        delivered = conn.execute(
-            "SELECT seq FROM trust.audit_events WHERE event_type='dispatch.delivered' AND payload->>'attempt_id'=%s",
-            (draft["attempt_id"],),
+        receipt = conn.execute(
+            "SELECT id FROM dispatch_receipts WHERE message_id=%s", (draft["attempt_id"],)
         ).fetchone()
-        if delivered:
-            assert delivered["seq"] < retired
-            assert outcomes[1]["status"] == "DELIVERED"
-        else:
-            assert outcomes[1]["status"] == "NOT_SENT"
+        assert bool(receipt) == (outcomes[1]["status"] == "DELIVERED")
+        # A fresh candidate cannot use the source after committed retirement.
+        if not receipt:
+            again = dispatch(
+                conn, trust_actor("operator"), draft, APPROVAL_SECRET, FrozenClock(trust_now)
+            )
+            assert again["status"] == "NOT_SENT"
         assert (
             conn.execute(
                 "SELECT status FROM trust.templates WHERE id=%s", (template["id"],)
@@ -302,15 +354,7 @@ def test_inv_contact_budget_is_per_borrower(trust_conn, trust_actor, trust_now):
         )["status"]
         == "DELIVERED"
     )
-    second = create_case(
-        trust_conn,
-        trust_actor("operator"),
-        {
-            "is_synthetic": True,
-            "borrower_ref": case["borrower_ref"],
-        },
-        trust_now,
-    )
+    second = mapped_case(trust_conn, trust_actor, trust_now, borrower_ref=case["borrower_ref"])
     result = prepared(trust_conn, trust_actor, trust_now, template, second)
     assert result["status"] == "NOT_SENT"
 
@@ -328,7 +372,7 @@ def test_conversation_stays_outside_knowledge_and_pauses(trust_conn, trust_actor
 
 
 def test_audit_failure_rolls_back_delivery(trust_dsn, trust_actor, trust_now, monkeypatch):
-    from app.services import dispatch_gate
+    from app.modules.conversations import dispatch as dispatch_gate
     from app.trust.db import initialize
 
     initialize(trust_dsn)
@@ -337,10 +381,10 @@ def test_audit_failure_rolls_back_delivery(trust_dsn, trust_actor, trust_now, mo
         draft = prepared(conn, trust_actor, trust_now, template, case)
     original = dispatch_gate.append_event
 
-    def fail(conn, actor, event_type, payload, now):
-        if event_type == "dispatch.delivered":
+    def fail(*args, **kwargs):
+        if args[2] == "simulate_dispatch":
             raise psycopg.OperationalError("injected audit outage")
-        return original(conn, actor, event_type, payload, now)
+        return original(*args, **kwargs)
 
     monkeypatch.setattr(dispatch_gate, "append_event", fail)
     with pytest.raises(psycopg.OperationalError), connection(trust_dsn) as conn:
@@ -348,7 +392,7 @@ def test_audit_failure_rolls_back_delivery(trust_dsn, trust_actor, trust_now, mo
     with connection(trust_dsn) as conn:
         assert (
             conn.execute(
-                "SELECT count(*) AS n FROM trust.dispatches WHERE attempt_id=%s",
+                "SELECT count(*) AS n FROM dispatch_receipts WHERE message_id=%s",
                 (draft["attempt_id"],),
             ).fetchone()["n"]
             == 0
@@ -387,15 +431,16 @@ def test_gate_binds_persisted_authority(trust_conn, trust_actor, trust_now, chan
     draft = prepared(trust_conn, trust_actor, trust_now, template, case)
     if change == "hash":
         trust_conn.execute(
-            "UPDATE trust.attempts SET text_sha256=%s WHERE id=%s", ("0" * 64, draft["attempt_id"])
+            "UPDATE message_approvals SET binding=jsonb_set(binding,'{content_hash}',%s) "
+            "WHERE message_id=%s",
+            (Jsonb("0" * 64), draft["attempt_id"]),
         )
     elif change == "policy":
-        trust_conn.execute(
-            "UPDATE trust.attempts SET policy_version='changed' WHERE id=%s", (draft["attempt_id"],)
-        )
+        trust_conn.execute("UPDATE collection_policies SET version='changed' WHERE active")
     else:
         trust_conn.execute(
-            "DELETE FROM trust.contact_budgets WHERE borrower_ref=%s", (case["borrower_ref"],)
+            "UPDATE collection_authorities SET mandate_active=false WHERE borrower_ref=%s",
+            (case["borrower_ref"],),
         )
     result = dispatch(
         trust_conn, trust_actor("operator"), draft, APPROVAL_SECRET, FrozenClock(trust_now)
@@ -437,6 +482,7 @@ def test_api_body_limit_and_capability_before_replay(trust_dsn, trust_now):
 
         request_key = str(uuid4())
         first = client.post("/cases", json={"is_synthetic": True}, headers=headers("operator"))
-        assert first.status_code == 200
+        assert first.status_code == 409
+        assert first.json()["code"] == "legacy_case_mapping_required"
         replay = client.post("/cases", json={"is_synthetic": True}, headers=headers("personal"))
         assert replay.status_code == 403

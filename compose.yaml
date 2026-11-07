@@ -5,6 +5,24 @@ x-backend: &backend
   environment:
     DATABASE_URL: postgresql://${POSTGRES_USER:-collectflow}:${POSTGRES_PASSWORD:-local-demo-password}@postgres:5432/${POSTGRES_DB:-collectflow}
     APP_NAME: ${APP_NAME:-CollectFlow API}
+    DATABASE_STATEMENT_TIMEOUT_MS: ${DATABASE_STATEMENT_TIMEOUT_MS:-10000}
+    DATABASE_LOCK_TIMEOUT_MS: ${DATABASE_LOCK_TIMEOUT_MS:-2000}
+    APPROVAL_TTL_SECONDS: ${APPROVAL_TTL_SECONDS:-900}
+    WORKER_LEASE_SECONDS: ${WORKER_LEASE_SECONDS:-60}
+    WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-2}
+    WORKER_RUNTIME_DEADLINE_SECONDS: ${WORKER_RUNTIME_DEADLINE_SECONDS:-300}
+    DEMO_FIXTURE_ENABLED: ${DEMO_FIXTURE_ENABLED:-true}
+    KNOWLEDGE_MODE: ${KNOWLEDGE_MODE:-demo_fixture}
+    KNOWLEDGE_SERVICE_FACTORY: ${KNOWLEDGE_SERVICE_FACTORY:-}
+    APPROVAL_HMAC_SECRET: ${APPROVAL_HMAC_SECRET:-local-synthetic-demo-change-before-sharing}
+    HERMES_API_BASE_URL: ${HERMES_API_BASE_URL:-}
+    HERMES_API_KEY: ${HERMES_API_KEY:-}
+    HERMES_TIMEOUT_SECONDS: ${HERMES_TIMEOUT_SECONDS:-20}
+    HERMES_PROFILE: ${HERMES_PROFILE:-}
+    MCP_BEARER_TOKEN: ${MCP_BEARER_TOKEN:-}
+    MCP_PRINCIPAL_ID: ${MCP_PRINCIPAL_ID:-hermes-agent}
+    MCP_ALLOWED_HOSTS: '${MCP_ALLOWED_HOSTS:-["127.0.0.1:*","localhost:*"]}'
+    MCP_ALLOWED_ORIGINS: '${MCP_ALLOWED_ORIGINS:-["http://127.0.0.1:*","http://localhost:*"]}'
     TRUST_ENABLED: ${TRUST_ENABLED:-false}
     TRUST_JWT_SECRET: ${TRUST_JWT_SECRET:-}
     TRUST_APPROVAL_SECRET: ${TRUST_APPROVAL_SECRET:-}
@@ -49,6 +67,37 @@ services:
       interval: 5s
       timeout: 4s
       retries: 10
+
+  worker:
+    <<: *backend
+    command: ["uv", "run", "--no-sync", "python", "-m", "app.workers.collection"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  mcp:
+    <<: *backend
+    profiles: ["mcp"]
+    command: ["uv", "run", "--no-sync", "uvicorn", "app.mcp.server:create_app", "--factory", "--host", "0.0.0.0", "--port", "8002"]
+    environment:
+      # MCP needs the same DB but uses its own listener, never the operator REST router.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-collectflow}:${POSTGRES_PASSWORD:-local-demo-password}@postgres:5432/${POSTGRES_DB:-collectflow}
+      DATABASE_STATEMENT_TIMEOUT_MS: ${DATABASE_STATEMENT_TIMEOUT_MS:-10000}
+      DATABASE_LOCK_TIMEOUT_MS: ${DATABASE_LOCK_TIMEOUT_MS:-2000}
+      MCP_BEARER_TOKEN: ${MCP_BEARER_TOKEN:-}
+      MCP_PRINCIPAL_ID: ${MCP_PRINCIPAL_ID:-hermes-agent}
+      MCP_TOKEN_EXPIRES_AT: ${MCP_TOKEN_EXPIRES_AT:-2000-01-01T00:00:00Z}
+      MCP_ALLOWED_HOSTS: '${MCP_ALLOWED_HOSTS:-["127.0.0.1:*","localhost:*"]}'
+      MCP_ALLOWED_ORIGINS: '${MCP_ALLOWED_ORIGINS:-["http://127.0.0.1:*","http://localhost:*"]}'
+      KNOWLEDGE_MODE: ${KNOWLEDGE_MODE:-demo_fixture}
+      KNOWLEDGE_SERVICE_FACTORY: ${KNOWLEDGE_SERVICE_FACTORY:-}
+      APPROVAL_HMAC_SECRET: ${APPROVAL_HMAC_SECRET:-local-synthetic-demo-change-before-sharing}
+    ports:
+      - "127.0.0.1:8002:8002"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
   postgres-test:
     image: pgvector/pgvector:pg17

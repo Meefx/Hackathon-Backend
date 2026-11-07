@@ -1,6 +1,6 @@
 # Trust contribution handoff
 
-The branch integrates main through `b517c53`, preserving portfolio routes and all
+The branch integrates main through `2f33388`, preserving portfolio routes and all
 existing safety tests. Commit and push are reserved for Erwan. No real borrower or
 external-channel integration is included.
 
@@ -8,10 +8,13 @@ external-channel integration is included.
 
 - `app/main.py`: portfolio plus opt-in `/api/v1/trust` API.
 - `app/modules/trust`: typed router/schemas, service transaction owner, request repository.
-- `app/trust`: evidence lifecycle, deterministic guardrails, screening and data processing.
-- `app/services/dispatch_gate.py`: only module permitted to import simulated channels.
+- `app/modules/knowledge`, `compliance`, `conversations`: canonical evidence, policy
+  and collection domains; `app/trust` retains compatibility facades and demo wiring.
+- `app/modules/conversations/dispatch.py`: sole delivery boundary;
+  `app/services/dispatch_gate.py` is its compatibility adapter.
 - `app/config.py` and `app/db/connection.py`: shared configuration/connections.
-- Alembic `0001_accounts -> 0002_trust -> 0003_source_archive`: shared schema history, pgvector required.
+- Alembic head `0006_source_collection_merge` joins `0003_source_archive` and
+  `0005_knowledge_collection`; published histories remain unchanged, pgvector required.
 - `app/modules/knowledge_sources`: curator CLI, immutable source archive and scoped reviewer API.
 - `app/policies/corpus`: 15 pinned public sources with article/section and amendment provenance.
 
@@ -49,7 +52,8 @@ is accepted as a fallback but must also end `_test`. Do not use the demo databas
 - Global write serialization favors the small demo; production throughput is unmeasured.
 - Existing trust primitives still combine domain logic and SQL. Further extraction into
   repositories is gradual; do not duplicate or replace the gate during extraction.
-- No live model, MCP transport, full agents, original 50 personas or browser E2E claim.
+- The team's MCP/worker implementation is included from main. Live-model quality,
+  original 50-persona evaluation and browser E2E are not claimed by this contribution.
 - Local backup restore was verified before the source migration; production restore,
   Docker/CI execution, production identity and retention remain unverified.
 

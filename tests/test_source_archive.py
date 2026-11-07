@@ -11,7 +11,7 @@ from alembic import command
 
 from app.config import TrustSettings
 from app.core.clock import FrozenClock
-from app.db.connection import connect, create_pool
+from app.db.connection import REQUIRED_REVISION, connect, create_pool
 from app.integrations.knowledge_sources.extract import extract_pdf
 from app.modules.knowledge_sources.preparation import PreparedSource, pages_hash
 from app.modules.knowledge_sources.schemas import SourceSpec
@@ -433,7 +433,7 @@ def test_populated_archive_downgrade_refuses_without_data_loss(
     with connect(database_url) as conn:
         assert (
             conn.execute("SELECT version_num FROM alembic_version").fetchone()["version_num"]
-            == "0003_source_archive"
+            == REQUIRED_REVISION
         )
         assert (
             bytes(
