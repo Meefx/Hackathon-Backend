@@ -10,7 +10,7 @@ Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 git clone https://github.com/Meefx/Hackathon-Backend.git
 cd Hackathon-Backend
 cp .env.example .env
-uv sync
+uv sync --locked
 uv run python -m app.seed
 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
@@ -39,7 +39,7 @@ uv run pytest
 uv run ruff check .
 ```
 
-GitHub Actions runs these checks on pushes and pull requests. After the first successful `uv sync`, commit the generated `uv.lock` and use `uv sync --locked` for reproducible installs.
+GitHub Actions runs these checks on pushes and pull requests. Dependencies are pinned in `uv.lock`; use `uv sync --locked` for reproducible installs.
 
 Storage and aging tests also run without dependencies: `python3 -m unittest discover -s tests -p test_store.py`.
 
