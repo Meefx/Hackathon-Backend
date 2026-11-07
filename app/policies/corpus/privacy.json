@@ -1,0 +1,762 @@
+[
+  {
+    "key": "uu_27_2022",
+    "title": "Law 27/2022 on Personal Data Protection",
+    "publisher": "Republic of Indonesia, official copy hosted by Ministry of Finance JDIH",
+    "source_class": "primary",
+    "source_url": "https://jdih.kemenkeu.go.id/api/download/46c17b53-4a45-411c-9b76-c6799e5769fc/UU_Nomor_27_Tahun_2022%20Perlindungan%20Data%20Pribadi.pdf",
+    "landing_url": "https://jdih.komdigi.go.id/produk_hukum/view/id/832/t/undangundang%2Bnomor%2B27%2Btahun%2B2022?search=48",
+    "source_version": "UU 27/2022",
+    "effective_from": "2022-10-17",
+    "effective_until": null,
+    "legal_status": "in_force",
+    "scopes": [
+      {
+        "principal": "cf",
+        "product": "spaylater"
+      },
+      {
+        "principal": "ldn",
+        "product": "spinjam"
+      }
+    ],
+    "status_notes": "Law remains in force. Article 53(1)(b) must be read with Constitutional Court Decision 151/PUU-XXII/2024 from 30 July 2025. Archived PDF has a defective text layer with omitted words and OCR errors; selected extracts require image comparison before approval. Article 53 original wording is review_required, never an unqualified current standalone rule. No claim of exhaustive legal coverage.",
+    "provisions": [
+      {
+        "key": "art_4",
+        "locator": "Pasal 4",
+        "title": "Specific and general personal data",
+        "section": "body",
+        "page_start": 4,
+        "page_end": 5,
+        "legal_status": "in_force",
+        "effective_from": "2022-10-17",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "article": 4,
+        "extraction_review_required": true
+      },
+      {
+        "key": "art_10",
+        "locator": "Pasal 10",
+        "title": "Objection to solely automated decisions with legal or significant effects",
+        "section": "body",
+        "page_start": 6,
+        "page_end": 6,
+        "legal_status": "in_force",
+        "effective_from": "2022-10-17",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "article": 10,
+        "extraction_review_required": true
+      },
+      {
+        "key": "art_16",
+        "locator": "Pasal 16",
+        "title": "Processing activities and personal data principles",
+        "section": "body",
+        "page_start": 8,
+        "page_end": 9,
+        "legal_status": "in_force",
+        "effective_from": "2022-10-17",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "article": 16,
+        "extraction_review_required": true
+      },
+      {
+        "key": "art_20",
+        "locator": "Pasal 20",
+        "title": "Lawful grounds for personal data processing",
+        "section": "body",
+        "page_start": 10,
+        "page_end": 11,
+        "legal_status": "in_force",
+        "effective_from": "2022-10-17",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "article": 20,
+        "extraction_review_required": true
+      },
+      {
+        "key": "art_28",
+        "locator": "Pasal 28",
+        "title": "Processing limited to stated purposes",
+        "section": "body",
+        "page_start": 13,
+        "page_end": 13,
+        "legal_status": "in_force",
+        "effective_from": "2022-10-17",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "article": 28,
+        "extraction_review_required": true,
+        "end_marker": ". Pasal 29"
+      },
+      {
+        "key": "art_31",
+        "locator": "Pasal 31",
+        "title": "Recording personal data processing activities",
+        "section": "body",
+        "page_start": 14,
+        "page_end": 14,
+        "legal_status": "in_force",
+        "effective_from": "2022-10-17",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "article": 31,
+        "extraction_review_required": true
+      },
+      {
+        "key": "art_34",
+        "locator": "Pasal 34",
+        "title": "High-risk processing impact assessment",
+        "section": "body",
+        "page_start": 15,
+        "page_end": 15,
+        "legal_status": "in_force",
+        "effective_from": "2022-10-17",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "article": 34,
+        "extraction_review_required": true
+      },
+      {
+        "key": "art_35",
+        "locator": "Pasal 35",
+        "title": "Technical and organisational data security",
+        "section": "body",
+        "page_start": 15,
+        "page_end": 16,
+        "legal_status": "in_force",
+        "effective_from": "2022-10-17",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "article": 35,
+        "extraction_review_required": true
+      },
+      {
+        "key": "art_36",
+        "locator": "Pasal 36",
+        "title": "Confidentiality of personal data",
+        "section": "body",
+        "page_start": 16,
+        "page_end": 16,
+        "legal_status": "in_force",
+        "effective_from": "2022-10-17",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "article": 36,
+        "extraction_review_required": true
+      },
+      {
+        "key": "art_38",
+        "locator": "Pasal 38",
+        "title": "Protection against unlawful processing",
+        "section": "body",
+        "page_start": 16,
+        "page_end": 16,
+        "legal_status": "in_force",
+        "effective_from": "2022-10-17",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "article": 38,
+        "extraction_review_required": true
+      },
+      {
+        "key": "art_39",
+        "locator": "Pasal 39",
+        "title": "Prevention of unauthorised access",
+        "section": "body",
+        "page_start": 16,
+        "page_end": 17,
+        "legal_status": "in_force",
+        "effective_from": "2022-10-17",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "article": 39,
+        "extraction_review_required": true
+      },
+      {
+        "key": "art_43",
+        "locator": "Pasal 43",
+        "title": "Deletion of personal data",
+        "section": "body",
+        "page_start": 18,
+        "page_end": 18,
+        "legal_status": "in_force",
+        "effective_from": "2022-10-17",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "article": 43,
+        "extraction_review_required": true
+      },
+      {
+        "key": "art_44",
+        "locator": "Pasal 44",
+        "title": "Destruction of personal data",
+        "section": "body",
+        "page_start": 18,
+        "page_end": 18,
+        "legal_status": "in_force",
+        "effective_from": "2022-10-17",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "article": 44,
+        "extraction_review_required": true
+      },
+      {
+        "key": "art_46",
+        "locator": "Pasal 46",
+        "title": "Personal data breach notification",
+        "section": "body",
+        "page_start": 19,
+        "page_end": 19,
+        "legal_status": "in_force",
+        "effective_from": "2022-10-17",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "article": 46,
+        "extraction_review_required": true
+      },
+      {
+        "key": "art_47",
+        "locator": "Pasal 47",
+        "title": "Controller accountability",
+        "section": "body",
+        "page_start": 19,
+        "page_end": 19,
+        "legal_status": "in_force",
+        "effective_from": "2022-10-17",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "article": 47,
+        "extraction_review_required": true
+      },
+      {
+        "key": "art_53",
+        "locator": "Pasal 53",
+        "title": "Data protection officer appointment; read with MK151/2024",
+        "section": "body",
+        "page_start": 22,
+        "page_end": 22,
+        "legal_status": "review_required",
+        "effective_from": "2022-10-17",
+        "effective_until": null,
+        "context_refs": [
+          "mk_151_2024:operative_holding"
+        ],
+        "rule_ids": [],
+        "article": 53,
+        "extraction_review_required": true
+      },
+      {
+        "key": "art_54",
+        "locator": "Pasal 54",
+        "title": "Data protection officer duties",
+        "section": "body",
+        "page_start": 22,
+        "page_end": 23,
+        "legal_status": "in_force",
+        "effective_from": "2022-10-17",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "article": 54,
+        "extraction_review_required": true
+      },
+      {
+        "key": "art_56",
+        "locator": "Pasal 56",
+        "title": "Cross-border personal data transfers",
+        "section": "body",
+        "page_start": 24,
+        "page_end": 24,
+        "legal_status": "in_force",
+        "effective_from": "2022-10-17",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "article": 56,
+        "extraction_review_required": true
+      }
+    ],
+    "relationships": [],
+    "expected_phrases": [
+      "PELINDUNGAN DATA PRIBADI",
+      "Pasal 53",
+      "Pasal 56"
+    ],
+    "download_path": "data/knowledge_sources/privacy/uu_27_2022.pdf",
+    "sha256": "ed952dea04b87d14ecf037f9f324a65d50b396ddd34fc28ddf9ff014391971f6",
+    "text_path": "data/knowledge_sources/privacy/uu_27_2022.txt",
+    "pages_path": "data/knowledge_sources/privacy/uu_27_2022.pages.json",
+    "extraction_method": "pdf_text",
+    "extraction_review_required": true,
+    "extracted_text_sha256": "35e61589a7f726df2083ca6ea21acf7e091375bc05342d93d1a83ec925d1316b",
+    "last_verified_at": "2026-11-07",
+    "language": "id",
+    "extraction_sha256": "31d94670aa29298451dc7b717789404e186c405ad83ff4e9cf30b553138a9966"
+  },
+  {
+    "key": "mk_151_2024",
+    "title": "Constitutional Court Decision 151/PUU-XXII/2024: data protection officer criteria",
+    "publisher": "Constitutional Court of the Republic of Indonesia",
+    "source_class": "primary",
+    "source_url": "https://s.mkri.id/public/content/persidangan/putusan/putusan_mkri_12970_1753859809.pdf",
+    "landing_url": "https://www.mkri.id/perkara/persidangan/putusan?jenis=PUU&page=1&perPage=50&search=151%2FPUU-XXII%2F2024",
+    "source_version": "151/PUU-XXII/2024",
+    "effective_from": "2025-07-30",
+    "effective_until": null,
+    "legal_status": "in_force",
+    "scopes": [
+      {
+        "principal": "cf",
+        "product": "spaylater"
+      },
+      {
+        "principal": "ldn",
+        "product": "spinjam"
+      }
+    ],
+    "status_notes": "Full official judgment archived. Only the court reasoning and operative holding are selected; petitioner requests and evidence are excluded. The holding requires the conjunction in Law 27/2022 Article 53(1)(b) to be read as dan/atau. This does not create a new software dispatch rule.",
+    "provisions": [
+      {
+        "key": "officer_criteria_reasoning",
+        "locator": "Pertimbangan hukum [3.13.2], complete reasoning on independent Article 53 criteria",
+        "title": "Court reasoning on alternative data protection officer criteria",
+        "section": "body",
+        "page_start": 155,
+        "page_end": 158,
+        "legal_status": "in_force",
+        "effective_from": "2025-07-30",
+        "effective_until": null,
+        "context_refs": [
+          "uu_27_2022:art_53",
+          "mk_151_2024:operative_holding"
+        ],
+        "rule_ids": [],
+        "start_marker": "[3.13.2]",
+        "end_marker": "[3.14]"
+      },
+      {
+        "key": "operative_holding",
+        "locator": "5. Amar Putusan, angka 1–3",
+        "title": "Operative holding: Article 53(1)(b) conjunction",
+        "section": "body",
+        "page_start": 159,
+        "page_end": 159,
+        "legal_status": "in_force",
+        "effective_from": "2025-07-30",
+        "effective_until": null,
+        "context_refs": [
+          "uu_27_2022:art_53"
+        ],
+        "rule_ids": [],
+        "start_marker": "5. AMAR PUTUSAN",
+        "end_marker": "Demikian diputus"
+      }
+    ],
+    "relationships": [
+      {
+        "relation": "interprets",
+        "target_key": "uu_27_2022",
+        "target_locator": "Pasal 53 ayat (1) huruf b",
+        "effective_from": "2025-07-30"
+      }
+    ],
+    "expected_phrases": [
+      "151/PUU-XXII/2024",
+      "5. AMAR PUTUSAN",
+      "dan/atau"
+    ],
+    "download_path": "data/knowledge_sources/privacy/mk_151_2024_full.pdf",
+    "sha256": "6dbbdb8092625df850707a86592e240379c4edb7a28cb98b99ff8ac077815e47",
+    "text_path": "data/knowledge_sources/privacy/mk_151_2024_full.txt",
+    "pages_path": "data/knowledge_sources/privacy/mk_151_2024_full.pages.json",
+    "extraction_method": "pdf_text",
+    "extraction_review_required": false,
+    "extracted_text_sha256": "e286489f24b697e1c1be5fa62b38e689986f2385307d4abbd36a9852464646ed",
+    "last_verified_at": "2026-11-07",
+    "language": "id",
+    "extraction_sha256": "05448e83de50afb3441234c25955077bea82b3af5a25bbac5496f891d4ea41cc"
+  },
+  {
+    "key": "mk_102_2026",
+    "title": "Constitutional Court Decision 102/PUU-XXIV/2026: inadmissible challenge to legitimate interests",
+    "publisher": "Constitutional Court of the Republic of Indonesia",
+    "source_class": "primary",
+    "source_url": "https://www.mkri.id/public/content/persidangan/putusan/putusan_mkri_14179_1777448168.pdf",
+    "landing_url": "https://jdih.mkri.id/produk-hukum/putusan?frase=102%2FPUU-XXIV%2F2026&jenis=PUU&page=1&search=102%2FPUU-XXIV%2F2026&tahun=",
+    "source_version": "102/PUU-XXIV/2026",
+    "effective_from": "2026-04-29",
+    "effective_until": null,
+    "legal_status": "in_force",
+    "scopes": [
+      {
+        "principal": "cf",
+        "product": "spaylater"
+      },
+      {
+        "principal": "ldn",
+        "product": "spinjam"
+      }
+    ],
+    "status_notes": "Court declared the petition inadmissible, without changing Article 20(2)(f). The requested wording on PDF pages 26–27 is a petitioner request, not binding law. Only the operative holding is selected, avoiding litigant identity and disputed claims.",
+    "provisions": [
+      {
+        "key": "operative_holding",
+        "locator": "5. Amar Putusan",
+        "title": "Operative holding: petition inadmissible; no amendment",
+        "section": "body",
+        "page_start": 32,
+        "page_end": 32,
+        "legal_status": "in_force",
+        "effective_from": "2026-04-29",
+        "effective_until": null,
+        "context_refs": [
+          "uu_27_2022:art_20"
+        ],
+        "rule_ids": [],
+        "start_marker": "5. AMAR PUTUSAN",
+        "end_marker": "Demikian diputus"
+      }
+    ],
+    "relationships": [],
+    "expected_phrases": [
+      "102/PUU-XXIV/2026",
+      "5. AMAR PUTUSAN",
+      "tidak dapat diterima"
+    ],
+    "download_path": "data/knowledge_sources/privacy/mk_102_2026.pdf",
+    "sha256": "52f3d2eeede3f2e05c4ca8fdd63e8e5f3e721a2cbc0c31bb1b77b975851261ad",
+    "text_path": "data/knowledge_sources/privacy/mk_102_2026.txt",
+    "pages_path": "data/knowledge_sources/privacy/mk_102_2026.pages.json",
+    "extraction_method": "pdf_text",
+    "extraction_review_required": false,
+    "extracted_text_sha256": "1d7e306750f343677bc6b34e7700cc2f1299438908ea3e44bd53fd8b96c83800",
+    "last_verified_at": "2026-11-07",
+    "language": "id",
+    "extraction_sha256": "b50da448dfbd13057490a163f8ce4b583fbb8c05b0a2e565f84815c55010a662"
+  },
+  {
+    "key": "mk_284_2025",
+    "title": "Constitutional Court Decision 284/PUU-XXIII/2025: lawful consent challenge rejected",
+    "publisher": "Constitutional Court of the Republic of Indonesia",
+    "source_class": "primary",
+    "source_url": "https://s.mkri.id/public/content/persidangan/putusan/putusan_mkri_13917_1772423514.pdf",
+    "landing_url": "https://www.mkri.id/berita/pemrosesan-data-pribadi-hanya-dapat-dilakukan-dengan-persetujuan-yang-sah-24702",
+    "source_version": "284/PUU-XXIII/2025",
+    "effective_from": "2026-03-02",
+    "effective_until": null,
+    "legal_status": "in_force",
+    "scopes": [
+      {
+        "principal": "cf",
+        "product": "spaylater"
+      },
+      {
+        "principal": "ldn",
+        "product": "spinjam"
+      }
+    ],
+    "status_notes": "Challenge to Article 20(2)(a) rejected; no amendment. A petitioner demand to mandate certified electronic signatures was not adopted. Consent reasoning concerns that consent ground and must not be read as deleting other lawful grounds in Article 20(2). Only court conclusion and operative holding selected.",
+    "provisions": [
+      {
+        "key": "court_conclusion",
+        "locator": "Pertimbangan hukum [3.11]-[3.12] and 4. Konklusi",
+        "title": "Court conclusion on valid consent and rejected requested signature requirement",
+        "section": "body",
+        "page_start": 42,
+        "page_end": 42,
+        "legal_status": "in_force",
+        "effective_from": "2026-03-02",
+        "effective_until": null,
+        "context_refs": [
+          "uu_27_2022:art_20",
+          "mk_284_2025:operative_holding"
+        ],
+        "rule_ids": [],
+        "start_marker": "[3.11]",
+        "end_marker": "Berdasarkan Undang-Undang Dasar"
+      },
+      {
+        "key": "operative_holding",
+        "locator": "5. Amar Putusan",
+        "title": "Operative holding: challenge rejected in full",
+        "section": "body",
+        "page_start": 43,
+        "page_end": 43,
+        "legal_status": "in_force",
+        "effective_from": "2026-03-02",
+        "effective_until": null,
+        "context_refs": [
+          "uu_27_2022:art_20"
+        ],
+        "rule_ids": [],
+        "start_marker": "5. AMAR PUTUSAN",
+        "end_marker": "Demikian diputus"
+      }
+    ],
+    "relationships": [],
+    "expected_phrases": [
+      "284/PUU-XXIII/2025",
+      "5. AMAR PUTUSAN",
+      "Menolak permohonan Pemohon untuk seluruhnya"
+    ],
+    "download_path": "data/knowledge_sources/privacy/mk_284_2025.pdf",
+    "sha256": "ebb8291907451aaebab4497d76c1fcc1dd31c7918dbf33fc9057de661394c106",
+    "text_path": "data/knowledge_sources/privacy/mk_284_2025.txt",
+    "pages_path": "data/knowledge_sources/privacy/mk_284_2025.pages.json",
+    "extraction_method": "pdf_text",
+    "extraction_review_required": false,
+    "extracted_text_sha256": "e764d3dcb937edfc1a3ca7b94019294a0f1f3e4eaf8cfef623991cf57b207f8a",
+    "last_verified_at": "2026-11-07",
+    "language": "id",
+    "extraction_sha256": "6342948f2988f2294c1a9fe8dcadd7e4ef94041bd7c98981f18379e96a54574e"
+  },
+  {
+    "key": "skb_2026",
+    "title": "Joint Ministerial Decree: 2026 national holidays and collective leave",
+    "publisher": "Ministries of Religious Affairs, Manpower, and Administrative and Bureaucratic Reform",
+    "source_class": "primary",
+    "source_url": "https://www.kemenkopmk.go.id/sites/default/files/pengumuman/2025-09/SKB%20Libur%20Nasional%20dan%20Cuti%20Bersama%20Tahun%202026.pdf",
+    "landing_url": "https://www.setneg.go.id/baca/index/inilah_skb_3_menteri_libur_nasional_dan_cuti_bersama_2026",
+    "source_version": "SKB 1497/2025; 2/2025; 5/2025",
+    "effective_from": "2025-09-19",
+    "effective_until": null,
+    "legal_status": "in_force",
+    "scopes": [
+      {
+        "principal": "cf",
+        "product": "spaylater"
+      },
+      {
+        "principal": "ldn",
+        "product": "spinjam"
+      }
+    ],
+    "status_notes": "Decree takes effect on signature; schedule covers calendar year 2026. National holidays and collective leave are distinct. Blocking both in Graceline is a stricter product policy, not a claim that all collective leave is a universal statutory collection ban. Official scanned PDF has no text layer; OCR is uncorrected and requires review before approval. Dates in appendix visually cross-checked against page images.",
+    "provisions": [
+      {
+        "key": "operative_terms",
+        "locator": "Diktum KESATU–KETUJUH",
+        "title": "Schedule adoption, collective leave treatment and effective date",
+        "section": "body",
+        "page_start": 2,
+        "page_end": 2,
+        "legal_status": "in_force",
+        "effective_from": "2025-09-19",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "extraction_review_required": true
+      },
+      {
+        "key": "national_holidays",
+        "locator": "Lampiran A. Hari Libur Nasional",
+        "title": "National holiday calendar",
+        "section": "body",
+        "page_start": 3,
+        "page_end": 3,
+        "legal_status": "in_force",
+        "effective_from": "2025-09-19",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "extraction_review_required": true,
+        "start_marker": "A. HARI LIBUR NASIONAL TAHUN 2026",
+        "end_marker": "B. CUTI BERSAMA TAHUN 2026"
+      },
+      {
+        "key": "collective_leave",
+        "locator": "Lampiran B. Cuti Bersama",
+        "title": "Collective leave calendar",
+        "section": "body",
+        "page_start": 3,
+        "page_end": 4,
+        "legal_status": "in_force",
+        "effective_from": "2025-09-19",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "extraction_review_required": true,
+        "start_marker": "B. CUTI BERSAMA TAHUN 2026",
+        "end_marker": "MENTERI AGAMA,"
+      }
+    ],
+    "relationships": [],
+    "expected_phrases": [
+      "HARI LIBUR NASIONAL DAN CUTI BERSAMA TAHUN 2026",
+      "Keputusan Bersama ini mulai berlaku pada tanggal ditetapkan."
+    ],
+    "download_path": "data/knowledge_sources/privacy/skb_2026.pdf",
+    "sha256": "fead795bdcd98c384db2761a46d19ba643a80d8779fbb0040a938ba57896bd24",
+    "text_path": "data/knowledge_sources/privacy/skb_2026.ocr.txt",
+    "pages_path": "data/knowledge_sources/privacy/skb_2026.pages.json",
+    "extraction_method": "ocr",
+    "extraction_review_required": true,
+    "extracted_text_sha256": "3f00c705a1ebaf0e64efed9b7f645b7ac0424881a746299a939c4ac3dc7ab6ac",
+    "last_verified_at": "2026-11-07",
+    "language": "id",
+    "calendar_coverage": {
+      "from": "2026-01-01",
+      "until": "2027-01-01"
+    },
+    "extraction_sha256": "8570460b640506e05e7881b6c172aff4412abc7091e48545b25313c50739fd3d"
+  },
+  {
+    "key": "skb_2027",
+    "title": "Joint Ministerial Decree: 2027 national holidays and collective leave",
+    "publisher": "Ministries of Religious Affairs, Manpower, and Administrative and Bureaucratic Reform",
+    "source_class": "primary",
+    "source_url": "https://kemenkopmk.go.id/sites/default/files/pengumuman/2026-09/SKB%20Libur%20Nasional%20dan%20Cuti%20Bersama%20Tahun%202027.pdf",
+    "landing_url": "https://www.kemenkopmk.go.id/node/6444",
+    "source_version": "SKB 1205/2026; 3/2026; 2/2026",
+    "effective_from": "2026-09-15",
+    "effective_until": null,
+    "legal_status": "in_force",
+    "scopes": [
+      {
+        "principal": "cf",
+        "product": "spaylater"
+      },
+      {
+        "principal": "ldn",
+        "product": "spinjam"
+      }
+    ],
+    "status_notes": "Decree takes effect on signature; schedule covers calendar year 2027. National holidays and collective leave are distinct. Blocking both in Graceline is a stricter product policy, not a claim that all collective leave is a universal statutory collection ban. Official scanned PDF has no text layer; OCR is uncorrected and requires review before approval. Dates in appendix visually cross-checked against page images.",
+    "provisions": [
+      {
+        "key": "operative_terms",
+        "locator": "Diktum KESATU–KETUJUH",
+        "title": "Schedule adoption, collective leave treatment and effective date",
+        "section": "body",
+        "page_start": 2,
+        "page_end": 3,
+        "legal_status": "in_force",
+        "effective_from": "2026-09-15",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "extraction_review_required": true
+      },
+      {
+        "key": "national_holidays",
+        "locator": "Lampiran A. Hari Libur Nasional",
+        "title": "National holiday calendar",
+        "section": "body",
+        "page_start": 4,
+        "page_end": 4,
+        "legal_status": "in_force",
+        "effective_from": "2026-09-15",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "extraction_review_required": true,
+        "start_marker": "A. HARI LIBUR NASIONAL TAHUN 2027",
+        "end_marker": "B. CUTI BERSAMA TAHUN 2027"
+      },
+      {
+        "key": "collective_leave",
+        "locator": "Lampiran B. Cuti Bersama",
+        "title": "Collective leave calendar",
+        "section": "body",
+        "page_start": 4,
+        "page_end": 5,
+        "legal_status": "in_force",
+        "effective_from": "2026-09-15",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "extraction_review_required": true,
+        "start_marker": "B. CUTI BERSAMA TAHUN 2027",
+        "end_marker": "MENTERI AGAMA,"
+      }
+    ],
+    "relationships": [],
+    "expected_phrases": [
+      "HARI LIBUR NASIONAL DAN CUTI BERSAMA TAHUN 2027",
+      "Keputusan Bersama ini mulai berlaku pada tanggal ditetapkan."
+    ],
+    "download_path": "data/knowledge_sources/privacy/skb_2027.pdf",
+    "sha256": "dc43367115b4a5485bae697143bd0c93abbba3b8dd951195f734c9777cede66e",
+    "text_path": "data/knowledge_sources/privacy/skb_2027.ocr.txt",
+    "pages_path": "data/knowledge_sources/privacy/skb_2027.pages.json",
+    "extraction_method": "ocr",
+    "extraction_review_required": true,
+    "extracted_text_sha256": "371183aff0ad440ddfdd02d77385774083a3338711ab6905e7c8349805e7d849",
+    "last_verified_at": "2026-11-07",
+    "language": "id",
+    "calendar_coverage": {
+      "from": "2027-01-01",
+      "until": "2028-01-01"
+    },
+    "extraction_sha256": "3a3ecbe7806463019ac74504b2a4d2fbd41979b51a011e99a05aca3e5f312bc0"
+  },
+  {
+    "key": "ldn_complaints",
+    "title": "Lentera Dana Nusantara SPinjam customer complaint guidance",
+    "publisher": "PT Lentera Dana Nusantara",
+    "source_class": "guidance",
+    "source_url": "https://www.lenteradana.co.id/pdf/KetentuanPengaduanPelanggan.pdf",
+    "landing_url": "https://www.lenteradana.co.id/products/spinjam",
+    "source_version": "Undated public PDF",
+    "effective_from": null,
+    "effective_until": null,
+    "legal_status": "review_required",
+    "scopes": [
+      {
+        "principal": "ldn",
+        "product": "spinjam"
+      }
+    ],
+    "status_notes": "Official lender product guidance, not legislation. Publication and effective dates are absent, so review_required and excluded from approved current retrieval. Page 1 contains contact channels and account-identification requirements and is archived only. Page 2 guidance cannot override statutory complaint deadlines or justify indefinite extensions.",
+    "provisions": [
+      {
+        "key": "complaint_timing",
+        "locator": "Complaint handling paragraph, PDF page 2",
+        "title": "Published lender complaint handling timeframe",
+        "section": "body",
+        "page_start": 2,
+        "page_end": 2,
+        "legal_status": "review_required",
+        "effective_from": null,
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": []
+      }
+    ],
+    "relationships": [],
+    "expected_phrases": [
+      "Ketentuan Pengaduan Pelanggan",
+      "maksimal 10 (sepuluh) hari kerja"
+    ],
+    "download_path": "data/knowledge_sources/privacy/ldn_complaints.pdf",
+    "sha256": "157f508425f31492b67a1234d5bb51d432db3c421f942c67fe7f4b6d3574f814",
+    "text_path": "data/knowledge_sources/privacy/ldn_complaints.txt",
+    "pages_path": "data/knowledge_sources/privacy/ldn_complaints.pages.json",
+    "extraction_method": "pdf_text",
+    "extraction_review_required": false,
+    "extracted_text_sha256": "86b624a7d52ea3375c550323bfe6e192c035cd843d576b0e1ee15f3c9bf27f32",
+    "last_verified_at": "2026-11-07",
+    "language": "id",
+    "extraction_sha256": "ae7575dfd208a550bc31d60e4aa0764a3c2be90d575661383f374847378eea6d"
+  }
+]

@@ -1,8 +1,16 @@
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from psycopg.types.json import Jsonb
 
 from app.shared.idempotency import digest
+
+
+def _utc_timestamp(value):
+    instant = datetime.fromisoformat(value) if isinstance(value, str) else value
+    if not isinstance(instant, datetime) or instant.tzinfo is None or instant.utcoffset() is None:
+        raise ValueError("Audit timestamp requires a timezone")
+    return instant.astimezone(UTC).isoformat()
 
 
 def append_event(
@@ -32,7 +40,7 @@ def append_event(
         "outcome": outcome,
         "reason_codes": reason_codes or [],
         "correlation_id": correlation_id or str(uuid4()),
-        "created_at": now.isoformat(),
+        "created_at": _utc_timestamp(now),
         "previous_hash": previous["event_hash"] if previous else None,
     }
     event["event_hash"] = digest(event)
@@ -61,8 +69,10 @@ def verify_chain(events):
     previous = None
     for source in events:
         event = {k: v for k, v in source.items() if k not in ("event_hash", "sequence")}
-        if hasattr(event["created_at"], "isoformat"):
-            event["created_at"] = event["created_at"].isoformat()
+        try:
+            event["created_at"] = _utc_timestamp(event["created_at"])
+        except (ValueError, TypeError, KeyError):
+            return False
         if event["previous_hash"] != previous or digest(event) != source["event_hash"]:
             return False
         previous = source["event_hash"]

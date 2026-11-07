@@ -1,0 +1,903 @@
+[
+  {
+    "key": "pojk22_2023",
+    "title": "OJK Regulation 22/2023 on Consumer and Public Protection in the Financial Services Sector",
+    "publisher": "Otoritas Jasa Keuangan (OJK)",
+    "source_class": "primary",
+    "source_url": "https://www.peraturan.go.id/files/peraturan-ojk-no-22-tahun-2023.pdf",
+    "landing_url": "https://ojk.go.id/id/regulasi/Pages/Pelindungan-Konsumen-dan-Masyarakat-di-Sektor-Jasa-Keuangan.aspx",
+    "source_version": "POJK 22/2023",
+    "effective_from": "2023-12-22",
+    "effective_until": null,
+    "legal_status": "partially_repealed",
+    "scopes": [
+      {
+        "principal": "cf",
+        "product": "spaylater"
+      },
+      {
+        "principal": "ldn",
+        "product": "spinjam"
+      }
+    ],
+    "status_notes": [
+      "Articles 98(1)(b), 99 and 100 were repealed by POJK 38/2025 Article 20; Article 115(9) was repealed by POJK 39/2025 Article 16(f). Selected collection and complaint provisions are not those repealed provisions.",
+      "Article 62(3) consent exception is retained as source context only. Graceline remains stricter: no Sunday/holiday/out-of-hours dispatch and no third-party collection. Legal ingestion must not change these hard rules.",
+      "Article 62 explanation defines continuous contact as more than three times per day. A stricter product cap is permitted and remains code/config.",
+      "Article 75 does not impose a universal 20-business-day SLA: initial written complaint deadline is 10 business days after complete documents, with conditional extension and separate follow-up provisions."
+    ],
+    "provisions": [
+      {
+        "key": "art_60",
+        "locator": "Pasal 60",
+        "title": "Warning notice before collection and required debt information",
+        "section": "body",
+        "article": 60,
+        "page_start": 50,
+        "page_end": 51,
+        "legal_status": "in_force",
+        "effective_from": "2023-12-22",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": []
+      },
+      {
+        "key": "art_61",
+        "locator": "Pasal 61",
+        "title": "Requirements and lender responsibility for external collectors",
+        "section": "body",
+        "article": 61,
+        "page_start": 51,
+        "page_end": 52,
+        "legal_status": "in_force",
+        "effective_from": "2023-12-22",
+        "effective_until": null,
+        "context_refs": [
+          "pojk22_2023:art_60"
+        ],
+        "rule_ids": []
+      },
+      {
+        "key": "art_62",
+        "locator": "Pasal 62",
+        "title": "Collection conduct, recipient, time, place and consent exception",
+        "section": "body",
+        "article": 62,
+        "page_start": 52,
+        "page_end": 52,
+        "legal_status": "in_force",
+        "effective_from": "2023-12-22",
+        "effective_until": null,
+        "context_refs": [
+          "pojk22_2023:art_62_explanation",
+          "pojk22_faq:question_13"
+        ],
+        "rule_ids": []
+      },
+      {
+        "key": "art_62_explanation",
+        "locator": "Penjelasan Pasal 62",
+        "title": "Meaning of continuous collection and humiliating conduct",
+        "section": "explanation",
+        "article": 62,
+        "page_start": 129,
+        "page_end": 130,
+        "legal_status": "in_force",
+        "effective_from": "2023-12-22",
+        "effective_until": null,
+        "context_refs": [
+          "pojk22_2023:art_62"
+        ],
+        "rule_ids": []
+      },
+      {
+        "key": "art_71",
+        "locator": "Pasal 71",
+        "title": "Documents required for written consumer complaints",
+        "section": "body",
+        "article": 71,
+        "page_start": 58,
+        "page_end": 59,
+        "legal_status": "in_force",
+        "effective_from": "2023-12-22",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": []
+      },
+      {
+        "key": "art_74",
+        "locator": "Pasal 74",
+        "title": "Oral complaint handling deadline",
+        "section": "body",
+        "article": 74,
+        "page_start": 60,
+        "page_end": 61,
+        "legal_status": "in_force",
+        "effective_from": "2023-12-22",
+        "effective_until": null,
+        "context_refs": [
+          "pojk22_2023:art_75"
+        ],
+        "rule_ids": []
+      },
+      {
+        "key": "art_75",
+        "locator": "Pasal 75",
+        "title": "Written complaint deadlines, extension grounds and notices",
+        "section": "body",
+        "article": 75,
+        "page_start": 61,
+        "page_end": 62,
+        "legal_status": "in_force",
+        "effective_from": "2023-12-22",
+        "effective_until": null,
+        "context_refs": [
+          "pojk22_2023:art_71"
+        ],
+        "rule_ids": []
+      },
+      {
+        "key": "art_75_explanation",
+        "locator": "Penjelasan Pasal 75",
+        "title": "Clarification of written complaint extension conditions",
+        "section": "explanation",
+        "article": 75,
+        "page_start": 134,
+        "page_end": 135,
+        "legal_status": "in_force",
+        "effective_from": "2023-12-22",
+        "effective_until": null,
+        "context_refs": [
+          "pojk22_2023:art_75"
+        ],
+        "rule_ids": []
+      }
+    ],
+    "relationships": [],
+    "expected_phrases": [
+      "NOMOR 22 TAHUN 2023",
+      "Pasal 62",
+      "lebih dari 3 (tiga) kali dalam 1 (satu) hari"
+    ],
+    "download_path": "data/knowledge_sources/collection/pojk22_2023.pdf",
+    "pages_path": "data/knowledge_sources/collection/pojk22_2023.pages.json",
+    "sha256": "6158343583ae6676aec0c11175b91df625c2c4715300467e4e5bc2936ab5379f",
+    "extraction_method": "pdf_text",
+    "extraction_review_required": false,
+    "final_url": "https://www.peraturan.go.id/files/peraturan-ojk-no-22-tahun-2023.pdf",
+    "byte_size": 783833,
+    "page_count": 149,
+    "checked_on": "2026-11-07",
+    "approval_status": "draft",
+    "provenance_notes": "Downloaded from an official government domain; PDF signature, SHA256 and extracted page count checked. This is source verification, not legal approval or cryptographic certificate validation. Original Indonesian text is preserved.",
+    "extraction_sha256": "d8a91503b882789367fec731bf82fcd3f366d70e9972221ce5f5ed457a111d27",
+    "detected_content_type": "application/pdf"
+  },
+  {
+    "key": "pojk22_faq",
+    "title": "Official FAQ for OJK Regulation 22/2023: joint leave and collection holidays",
+    "publisher": "Otoritas Jasa Keuangan (OJK)",
+    "source_class": "guidance",
+    "source_url": "https://ojk.go.id/id/regulasi/Documents/Pages/Pelindungan-Konsumen-dan-Masyarakat-di-Sektor-Jasa-Keuangan/FAQ%20POJK%20Nomor%2022%20Tahun%202023%20PKM%20SJK.pdf",
+    "landing_url": "https://ojk.go.id/id/regulasi/Pages/Pelindungan-Konsumen-dan-Masyarakat-di-Sektor-Jasa-Keuangan.aspx",
+    "source_version": "FAQ POJK 22/2023",
+    "effective_from": null,
+    "effective_until": null,
+    "legal_status": "review_required",
+    "scopes": [
+      {
+        "principal": "cf",
+        "product": "spaylater"
+      },
+      {
+        "principal": "ldn",
+        "product": "spinjam"
+      }
+    ],
+    "status_notes": [
+      "Official explanatory FAQ explicitly states that it cannot serve as an independent legal basis. Question 13 is selected only as interpretation of POJK22 Article62.",
+      "The PDF does not provide an independently verified issue/effective date. Guidance remains review_required until QA/human confirm applicability. Other FAQ questions about exceptions do not authorize project guardrail changes."
+    ],
+    "provisions": [
+      {
+        "key": "question_13",
+        "locator": "FAQ question 13",
+        "title": "Government-declared joint leave counts as collection holidays",
+        "section": "body",
+        "article": null,
+        "page_start": 6,
+        "page_end": 6,
+        "legal_status": "review_required",
+        "effective_from": null,
+        "effective_until": null,
+        "context_refs": [
+          "pojk22_2023:art_62"
+        ],
+        "rule_ids": [],
+        "start_marker": "13. Apakah hari cuti bersama",
+        "end_marker": "14. Bagaimana"
+      }
+    ],
+    "relationships": [
+      {
+        "relation": "interprets",
+        "target_key": "pojk22_2023",
+        "target_locator": "Pasal 62 ayat (2)",
+        "effective_from": null
+      }
+    ],
+    "expected_phrases": [
+      "Frequently Asked Question",
+      "hari cuti bersama",
+      "Pasal 62"
+    ],
+    "download_path": "data/knowledge_sources/collection/pojk22_faq.pdf",
+    "pages_path": "data/knowledge_sources/collection/pojk22_faq.pages.json",
+    "sha256": "bd09d471788c3e17a139692f21c71358352d749ba8999167a44443561418f41f",
+    "extraction_method": "pdf_text",
+    "extraction_review_required": false,
+    "final_url": "https://ojk.go.id/id/regulasi/Documents/Pages/Pelindungan-Konsumen-dan-Masyarakat-di-Sektor-Jasa-Keuangan/FAQ%20POJK%20Nomor%2022%20Tahun%202023%20PKM%20SJK.pdf",
+    "byte_size": 275136,
+    "page_count": 12,
+    "checked_on": "2026-11-07",
+    "approval_status": "draft",
+    "provenance_notes": "Downloaded from an official government domain; PDF signature, SHA256 and extracted page count checked. This is source verification, not legal approval or cryptographic certificate validation. Original Indonesian text is preserved.",
+    "extraction_sha256": "3c3a48ec4a7b362cbafc6cb20a64d3c6f6e0b6174eb31ad524062d373617907e",
+    "detected_content_type": "application/pdf"
+  },
+  {
+    "key": "pojk32_2025",
+    "title": "OJK Regulation 32/2025 on Buy Now Pay Later Services",
+    "publisher": "Otoritas Jasa Keuangan (OJK)",
+    "source_class": "primary",
+    "source_url": "https://peraturan.bpk.go.id/Download/410988/POJK%2032%20Tahun%202025.pdf",
+    "landing_url": null,
+    "source_version": "POJK 32/2025",
+    "effective_from": "2025-12-15",
+    "effective_until": null,
+    "legal_status": "in_force",
+    "scopes": [
+      {
+        "principal": "cf",
+        "product": "spaylater"
+      }
+    ],
+    "status_notes": [
+      "Scope is bank/finance-company BNPL. Do not apply LPBBTI-specific fee schedules to CF/SPayLater.",
+      "Promulgation date 15 December 2025 was checked visually on PDF page 8 because the text layer omits signed date glyphs."
+    ],
+    "provisions": [
+      {
+        "key": "art_2",
+        "locator": "Pasal 2",
+        "title": "BNPL provider scope: banks and finance companies",
+        "section": "body",
+        "article": 2,
+        "page_start": 2,
+        "page_end": 3,
+        "legal_status": "in_force",
+        "effective_from": "2025-12-15",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": []
+      },
+      {
+        "key": "art_12",
+        "locator": "Pasal 12",
+        "title": "BNPL collection follows consumer-protection regulation",
+        "section": "body",
+        "article": 12,
+        "page_start": 5,
+        "page_end": 5,
+        "legal_status": "in_force",
+        "effective_from": "2025-12-15",
+        "effective_until": null,
+        "context_refs": [
+          "pojk22_2023:art_62"
+        ],
+        "rule_ids": []
+      },
+      {
+        "key": "art_17",
+        "locator": "Pasal 17",
+        "title": "Existing agreements and transition rules",
+        "section": "body",
+        "article": 17,
+        "page_start": 7,
+        "page_end": 7,
+        "legal_status": "in_force",
+        "effective_from": "2025-12-15",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": []
+      }
+    ],
+    "relationships": [
+      {
+        "relation": "implements",
+        "target_key": "pojk22_2023",
+        "target_locator": "Consumer protection regulation, referenced by Article 12",
+        "effective_from": "2025-12-15"
+      }
+    ],
+    "expected_phrases": [
+      "NOMOR 32 TAHUN 2025",
+      "Pasal 12",
+      "Perusahaan Pembiayaan"
+    ],
+    "download_path": "data/knowledge_sources/collection/pojk32_2025.pdf",
+    "pages_path": "data/knowledge_sources/collection/pojk32_2025.pages.json",
+    "sha256": "e95162a834e3c69c0ebccb360a207b6546856e93ce4959e129e84bcb1bd0f5a9",
+    "extraction_method": "pdf_text",
+    "extraction_review_required": false,
+    "final_url": "https://peraturan.bpk.go.id/Download/410988/POJK%2032%20Tahun%202025.pdf",
+    "byte_size": 1618888,
+    "page_count": 13,
+    "checked_on": "2026-11-07",
+    "approval_status": "draft",
+    "provenance_notes": "Downloaded from an official government domain; PDF signature, SHA256 and extracted page count checked. This is source verification, not legal approval or cryptographic certificate validation. Original Indonesian text is preserved.",
+    "extraction_sha256": "9eb83e69327e7a995c3eb6d4a82252ce58a2bfcf2df40f6f60f665d75e7a4568",
+    "detected_content_type": "application/pdf"
+  },
+  {
+    "key": "pojk40_2024",
+    "title": "OJK Regulation 40/2024 on Information Technology Based Joint Funding Services",
+    "publisher": "Otoritas Jasa Keuangan (OJK)",
+    "source_class": "primary",
+    "source_url": "https://ojk.go.id/id/regulasi/Documents/Pages/POJK-40-Tahun-2024-Layanan-Pendanaan-Bersama-Berbasis-Teknologi-Informasi/POJK%2040%20Tahun%202024%20Layanan%20Pendanaan%20Bersama%20Berbasis%20Teknologi%20Informasi.pdf",
+    "landing_url": "https://ojk.go.id/id/regulasi/Pages/POJK-40-Tahun-2024-Layanan-Pendanaan-Bersama-Berbasis-Teknologi-Informasi.aspx",
+    "source_version": "POJK 40/2024",
+    "effective_from": "2024-12-27",
+    "effective_until": null,
+    "legal_status": "partially_repealed",
+    "scopes": [
+      {
+        "principal": "ldn",
+        "product": "spinjam"
+      }
+    ],
+    "status_notes": [
+      "POJK 10/2022 is repealed by Article 236; compatible implementing provisions are addressed separately in Article 235.",
+      "Article 187 is repealed by POJK8/2026 Article33 from 6 July 2026. This does not repeal the entire regulation or selected collection Articles147-148.",
+      "A September2026 consultation draft to amend POJK40 is not treated as enacted law. No claim of exhaustive coverage of all future amendments."
+    ],
+    "provisions": [
+      {
+        "key": "art_147",
+        "locator": "Pasal 147",
+        "title": "Changes to funding agreements need both parties approval",
+        "section": "body",
+        "article": 147,
+        "page_start": 78,
+        "page_end": 78,
+        "legal_status": "in_force",
+        "effective_from": "2024-12-27",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": []
+      },
+      {
+        "key": "art_148",
+        "locator": "Pasal 148",
+        "title": "Risk mitigation, identity verification and collection",
+        "section": "body",
+        "article": 148,
+        "page_start": 78,
+        "page_end": 79,
+        "legal_status": "in_force",
+        "effective_from": "2024-12-27",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": []
+      },
+      {
+        "key": "art_148_explanation",
+        "locator": "Penjelasan Pasal 148",
+        "title": "Clarification of collection risk mitigation obligations",
+        "section": "explanation",
+        "article": 148,
+        "page_start": 149,
+        "page_end": 150,
+        "legal_status": "in_force",
+        "effective_from": "2024-12-27",
+        "effective_until": null,
+        "context_refs": [
+          "pojk40_2024:art_148"
+        ],
+        "rule_ids": []
+      },
+      {
+        "key": "art_235",
+        "locator": "Pasal 235",
+        "title": "Continuing application of compatible implementing provisions",
+        "section": "body",
+        "article": 235,
+        "page_start": 119,
+        "page_end": 119,
+        "legal_status": "in_force",
+        "effective_from": "2024-12-27",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": []
+      },
+      {
+        "key": "art_236",
+        "locator": "Pasal 236",
+        "title": "Repeal of POJK 10/2022",
+        "section": "body",
+        "article": 236,
+        "page_start": 119,
+        "page_end": 119,
+        "legal_status": "in_force",
+        "effective_from": "2024-12-27",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": []
+      }
+    ],
+    "relationships": [
+      {
+        "relation": "repeals",
+        "target_key": "pojk10_2022",
+        "target_locator": "Entire regulation, subject to implementing-provision savings in Article 235",
+        "effective_from": "2024-12-27"
+      }
+    ],
+    "expected_phrases": [
+      "NOMOR 40 TAHUN 2024",
+      "Pasal 147",
+      "Pasal 236"
+    ],
+    "download_path": "data/knowledge_sources/collection/pojk40_2024.pdf",
+    "pages_path": "data/knowledge_sources/collection/pojk40_2024.pages.json",
+    "sha256": "6cce988bf7634584143b66cde027922d260e6c3746a5675e84fa865e349f6a55",
+    "extraction_method": "pdf_text",
+    "extraction_review_required": false,
+    "final_url": "https://ojk.go.id/id/regulasi/Documents/Pages/POJK-40-Tahun-2024-Layanan-Pendanaan-Bersama-Berbasis-Teknologi-Informasi/POJK%2040%20Tahun%202024%20Layanan%20Pendanaan%20Bersama%20Berbasis%20Teknologi%20Informasi.pdf",
+    "byte_size": 3443568,
+    "page_count": 217,
+    "checked_on": "2026-11-07",
+    "approval_status": "draft",
+    "provenance_notes": "Downloaded from an official government domain; PDF signature, SHA256 and extracted page count checked. This is source verification, not legal approval or cryptographic certificate validation. Original Indonesian text is preserved.",
+    "extraction_sha256": "b7e2cc45810e55fcd234f7d4c40dcd5745aaf1821203c7f7b25fa76b4bae6d50",
+    "detected_content_type": "application/pdf"
+  },
+  {
+    "key": "seojk19_2025",
+    "title": "OJK Circular 19/SEOJK.06/2025 on Operation of LPBBTI",
+    "publisher": "Otoritas Jasa Keuangan (OJK)",
+    "source_class": "primary",
+    "source_url": "https://www.ojk.go.id/id/regulasi/Documents/Pages/SEOJK-19-SEOJK06-2025-Penyelenggaraan-LPBBTI/SEOJK%2019-SEOJK06-2025%20Penyelenggaraan%20Layanan%20Pendanaan%20Bersama%20Berbasis%20Teknologi%20Informasi.pdf",
+    "landing_url": "https://www.ojk.go.id/id/regulasi/Pages/SEOJK-19-SEOJK06-2025-Penyelenggaraan-LPBBTI.aspx",
+    "source_version": "SEOJK 19/SEOJK.06/2025",
+    "effective_from": "2025-07-31",
+    "effective_until": null,
+    "legal_status": "in_force",
+    "scopes": [
+      {
+        "principal": "ldn",
+        "product": "spinjam"
+      }
+    ],
+    "status_notes": [
+      "XXII(1) expressly repeals SEOJK19/SEOJK.06/2023. Use current XIV rates with type, tenor and contractual transition context; do not inject an obsolete universal 2026 rate of 0.1 percent.",
+      "XIV consumer funding ceiling is 0.3 percent per calendar day for tenor up to 6 months and 0.2 percent for tenor over 6 months. Productive funding has separate amount/tenor brackets. Source evidence only; this ingestion does not implement billing.",
+      "XVI classifies arrears over 90 calendar days as macet. This classification is not, by itself, a universal legal rule that all outreach must stop on day91. Project-specific stricter pauses remain possible.",
+      "XX.9 literally refers to number7 in the downloaded official copy although collection obligation is XX.8; preserve text and require contextual legal review, do not silently repair it.",
+      "Emergency contact text permits location confirmation only, never collection from the contact. Graceline has the stricter borrower-only recipient guardrail."
+    ],
+    "provisions": [
+      {
+        "key": "section_vii",
+        "locator": "VII numbers 1-12",
+        "title": "Data and information safeguards throughout the data lifecycle",
+        "section": "body",
+        "article": null,
+        "page_start": 6,
+        "page_end": 7,
+        "legal_status": "in_force",
+        "effective_from": "2025-07-31",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "start_marker": "VII. PENGELOLAAN DATA DAN INFORMASI",
+        "end_marker": "VIII. KONFIRMASI"
+      },
+      {
+        "key": "section_viii",
+        "locator": "VIII numbers 1-4",
+        "title": "Emergency contacts: location confirmation only, documented consent",
+        "section": "body",
+        "article": null,
+        "page_start": 7,
+        "page_end": 8,
+        "legal_status": "in_force",
+        "effective_from": "2025-07-31",
+        "effective_until": null,
+        "context_refs": [
+          "pojk22_2023:art_62"
+        ],
+        "rule_ids": [],
+        "start_marker": "VIII. KONFIRMASI PENGGUNAAN KONTAK DARURAT",
+        "end_marker": "IX. PEMBERI DANA"
+      },
+      {
+        "key": "section_xiv",
+        "locator": "XIV numbers 1-7",
+        "title": "Economic benefit and late-fee ceilings by funding type and tenor",
+        "section": "body",
+        "article": null,
+        "page_start": 18,
+        "page_end": 21,
+        "legal_status": "in_force",
+        "effective_from": "2025-07-31",
+        "effective_until": null,
+        "context_refs": [
+          "seojk19_2025:section_xxi"
+        ],
+        "rule_ids": [],
+        "start_marker": "XIV. BATAS MAKSIMUM MANFAAT EKONOMI",
+        "end_marker": "XV. FASILITAS MITIGASI RISIKO"
+      },
+      {
+        "key": "section_xvi",
+        "locator": "XVI numbers 1-7",
+        "title": "Funding quality classifications including arrears over 90 days",
+        "section": "body",
+        "article": null,
+        "page_start": 23,
+        "page_end": 24,
+        "legal_status": "in_force",
+        "effective_from": "2025-07-31",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "start_marker": "XVI. TINGKAT KUALITAS PENDANAAN",
+        "end_marker": "XVII. PUBLIKASI"
+      },
+      {
+        "key": "section_xx",
+        "locator": "XX numbers 1-10",
+        "title": "Portfolio transfer and collection responsibility",
+        "section": "body",
+        "article": null,
+        "page_start": 26,
+        "page_end": 27,
+        "legal_status": "in_force",
+        "effective_from": "2025-07-31",
+        "effective_until": null,
+        "context_refs": [
+          "pojk22_2023:art_62"
+        ],
+        "rule_ids": [],
+        "start_marker": "XX. KETENTUAN LAIN-LAIN",
+        "end_marker": "XXI. KETENTUAN PERALIHAN"
+      },
+      {
+        "key": "section_xxi",
+        "locator": "XXI numbers 1-6",
+        "title": "Transition provisions and existing funding agreements",
+        "section": "body",
+        "article": null,
+        "page_start": 27,
+        "page_end": 28,
+        "legal_status": "in_force",
+        "effective_from": "2025-07-31",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "start_marker": "XXI. KETENTUAN PERALIHAN",
+        "end_marker": "XXII. PENUTUP"
+      },
+      {
+        "key": "section_xxii",
+        "locator": "XXII numbers 1-2",
+        "title": "Repeal of SEOJK19/2023 and commencement",
+        "section": "body",
+        "article": null,
+        "page_start": 28,
+        "page_end": 28,
+        "legal_status": "in_force",
+        "effective_from": "2025-07-31",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": [],
+        "start_marker": "XXII. PENUTUP",
+        "end_marker": "Ditetapkan di Jakarta"
+      }
+    ],
+    "relationships": [
+      {
+        "relation": "implements",
+        "target_key": "pojk40_2024",
+        "target_locator": "LPBBTI implementing provisions",
+        "effective_from": "2025-07-31"
+      },
+      {
+        "relation": "repeals",
+        "target_key": "seojk19_2023",
+        "target_locator": "Entire circular under XXII(1)",
+        "effective_from": "2025-07-31"
+      }
+    ],
+    "expected_phrases": [
+      "19/SEOJK.06/2025",
+      "BATAS MAKSIMUM MANFAAT EKONOMI",
+      "31 Juli 2025"
+    ],
+    "download_path": "data/knowledge_sources/collection/seojk19_2025.pdf",
+    "pages_path": "data/knowledge_sources/collection/seojk19_2025.pages.json",
+    "sha256": "c279d8e30d6dcccd427d6056d766f829b68e17241575354849924ef0e44d0b18",
+    "extraction_method": "pdf_text",
+    "extraction_review_required": false,
+    "final_url": "https://www.ojk.go.id/id/regulasi/Documents/Pages/SEOJK-19-SEOJK06-2025-Penyelenggaraan-LPBBTI/SEOJK%2019-SEOJK06-2025%20Penyelenggaraan%20Layanan%20Pendanaan%20Bersama%20Berbasis%20Teknologi%20Informasi.pdf",
+    "byte_size": 612614,
+    "page_count": 39,
+    "checked_on": "2026-11-07",
+    "approval_status": "draft",
+    "provenance_notes": "Downloaded from an official government domain; PDF signature, SHA256 and extracted page count checked. This is source verification, not legal approval or cryptographic certificate validation. Original Indonesian text is preserved.",
+    "extraction_sha256": "99428788ce72caaf88561a3a3a2e5d84b09e78c84d180f2df73bc06b2c004802",
+    "detected_content_type": "application/pdf"
+  },
+  {
+    "key": "pojk38_2025",
+    "title": "OJK Regulation 38/2025 on OJK Lawsuits for Consumer Protection",
+    "publisher": "Otoritas Jasa Keuangan (OJK)",
+    "source_class": "primary",
+    "source_url": "https://peraturan.bpk.go.id/Download/410992/POJK%2038%20Tahun%202025.pdf",
+    "landing_url": "https://www.ojk.go.id/id/regulasi/Pages/POJK-38-Tahun-2025-Gugatan-oleh-OJK-untuk-Pelindungan-Konsumen-di-Sektor-Jasa-Keuangan.aspx",
+    "source_version": "POJK 38/2025",
+    "effective_from": "2025-12-22",
+    "effective_until": null,
+    "legal_status": "in_force",
+    "scopes": [
+      {
+        "principal": "cf",
+        "product": "spaylater"
+      },
+      {
+        "principal": "ldn",
+        "product": "spinjam"
+      }
+    ],
+    "status_notes": [
+      "Selected only as amendment provenance; this is not authority for an agent to threaten litigation or file a lawsuit.",
+      "Promulgation date 22 December2025 checked visually on PDF page10. Download from official BPK mirror because OJK file URL returned HTTP200 rejection HTML."
+    ],
+    "provisions": [
+      {
+        "key": "art_20",
+        "locator": "Pasal 20",
+        "title": "Partial repeal of POJK22 Articles98(1)(b),99 and100",
+        "section": "body",
+        "article": 20,
+        "page_start": 9,
+        "page_end": 9,
+        "legal_status": "in_force",
+        "effective_from": "2025-12-22",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": []
+      }
+    ],
+    "relationships": [
+      {
+        "relation": "repeals",
+        "target_key": "pojk22_2023",
+        "target_locator": "Pasal 98 ayat (1) huruf b; Pasal 99; Pasal 100",
+        "effective_from": "2025-12-22"
+      }
+    ],
+    "expected_phrases": [
+      "NOMOR 38 TAHUN 2025",
+      "Pasal 20",
+      "Pasal 98 ayat (1) huruf b"
+    ],
+    "download_path": "data/knowledge_sources/collection/pojk38_2025.pdf",
+    "pages_path": "data/knowledge_sources/collection/pojk38_2025.pages.json",
+    "sha256": "a1a42f88f6755fe7da10c9429ec088da09b3be462e12c71c002980b588458897",
+    "extraction_method": "pdf_text",
+    "extraction_review_required": false,
+    "final_url": "https://peraturan.bpk.go.id/Download/410992/POJK%2038%20Tahun%202025.pdf",
+    "content_type": "application/pdf",
+    "http_status": 200,
+    "byte_size": 1689964,
+    "page_count": 18,
+    "checked_on": "2026-11-07",
+    "approval_status": "draft",
+    "provenance_notes": "Downloaded from an official government domain; PDF signature, SHA256 and extracted page count checked. This is source verification, not legal approval or cryptographic certificate validation. Original Indonesian text is preserved.",
+    "extraction_sha256": "7d3e481850f459b652c14625b12589b27169e7e09f80ac333158ae540efbdec2"
+  },
+  {
+    "key": "pojk39_2025",
+    "title": "OJK Regulation 39/2025 on Collection of Administrative Fines in Financial Services",
+    "publisher": "Otoritas Jasa Keuangan (OJK)",
+    "source_class": "primary",
+    "source_url": "https://peraturan.bpk.go.id/Download/410993/POJK%2039%20Tahun%202025.pdf",
+    "landing_url": "https://ojk.go.id/id/regulasi/Pages/POJK-39-Tahun-2025-Tata-Cara-Penagihan-Sanksi-Administratif-Berupa-Denda-di-SJK.aspx",
+    "source_version": "POJK 39/2025",
+    "effective_from": "2025-12-22",
+    "effective_until": null,
+    "legal_status": "in_force",
+    "scopes": [
+      {
+        "principal": "cf",
+        "product": "spaylater"
+      },
+      {
+        "principal": "ldn",
+        "product": "spinjam"
+      }
+    ],
+    "status_notes": [
+      "Administrative fine collection is not borrower debt collection. Only Article16 amendment context is selected.",
+      "Promulgation date 22 December2025 checked visually on PDF page10. Download from official BPK mirror because OJK file URL returned HTTP200 rejection HTML."
+    ],
+    "provisions": [
+      {
+        "key": "art_16",
+        "locator": "Pasal 16",
+        "title": "Partial repeal of POJK22 Article115(9)",
+        "section": "body",
+        "article": 16,
+        "page_start": 8,
+        "page_end": 9,
+        "legal_status": "in_force",
+        "effective_from": "2025-12-22",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": []
+      }
+    ],
+    "relationships": [
+      {
+        "relation": "repeals",
+        "target_key": "pojk22_2023",
+        "target_locator": "Pasal 115 ayat (9)",
+        "effective_from": "2025-12-22"
+      }
+    ],
+    "expected_phrases": [
+      "NOMOR 39 TAHUN 2025",
+      "Pasal 115 ayat (9)",
+      "Pasal 16"
+    ],
+    "download_path": "data/knowledge_sources/collection/pojk39_2025.pdf",
+    "pages_path": "data/knowledge_sources/collection/pojk39_2025.pages.json",
+    "sha256": "6b1df163bf4a75faf3f56761791a0b850d50cfea7bdf8b13b5bf03486eca3b83",
+    "extraction_method": "pdf_text",
+    "extraction_review_required": false,
+    "final_url": "https://peraturan.bpk.go.id/Download/410993/POJK%2039%20Tahun%202025.pdf",
+    "content_type": "application/pdf",
+    "http_status": 200,
+    "byte_size": 1651442,
+    "page_count": 14,
+    "checked_on": "2026-11-07",
+    "approval_status": "draft",
+    "provenance_notes": "Downloaded from an official government domain; PDF signature, SHA256 and extracted page count checked. This is source verification, not legal approval or cryptographic certificate validation. Original Indonesian text is preserved.",
+    "extraction_sha256": "62fb4f18078a015bdc6cc04e4f9e07388624fbc34f01521ec7c68ece61ec930c"
+  },
+  {
+    "key": "pojk8_2026",
+    "title": "OJK Regulation 8/2026 on LPBBTI Funding Transaction Reporting and Data Requests",
+    "publisher": "Otoritas Jasa Keuangan (OJK)",
+    "source_class": "primary",
+    "source_url": "https://peraturan.bpk.go.id/Download/416165/peraturan-ojk-no-8-tahun-2026.pdf",
+    "landing_url": "https://ojk.go.id/id/regulasi/Pages/POJK-8-Tahun-2026-Pelaporan-dan-Permintaan-Data-Transaksi-Pendanaan-oleh-Penyelenggara-LPBBTI.aspx",
+    "source_version": "POJK 8/2026",
+    "effective_from": "2026-07-06",
+    "effective_until": null,
+    "legal_status": "in_force",
+    "scopes": [
+      {
+        "principal": "ldn",
+        "product": "spinjam"
+      }
+    ],
+    "status_notes": [
+      "Promulgation date 6 July2026 verified visually on the downloaded signed PDF page18 and explicitly stated on the OJK publisher landing page. BPK catalogue incorrectly says 6 December2026; primary PDF and publisher control this curated date.",
+      "The signed date is an image/encoded glyph omitted by text extraction; rendered evidence retained locally. This visual source-date check is not cryptographic signature validation.",
+      "Article33 repeals only POJK40 Article187. Reporting rules do not authorize borrower outreach, disclosure, a live regulator API, or any simulated-channel exception.",
+      "Article32 includes reporting-system availability transition conditions; no claim that all reporting API capabilities are live."
+    ],
+    "provisions": [
+      {
+        "key": "art_2",
+        "locator": "Pasal 2",
+        "title": "Complete, accurate and timely funding transaction reporting",
+        "section": "body",
+        "article": 2,
+        "page_start": 3,
+        "page_end": 4,
+        "legal_status": "in_force",
+        "effective_from": "2026-07-06",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": []
+      },
+      {
+        "key": "art_11",
+        "locator": "Pasal 11",
+        "title": "Borrower notice before reporting funding data",
+        "section": "body",
+        "article": 11,
+        "page_start": 8,
+        "page_end": 8,
+        "legal_status": "in_force",
+        "effective_from": "2026-07-06",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": []
+      },
+      {
+        "key": "art_14",
+        "locator": "Pasal 14",
+        "title": "Prohibition on sharing or selling reporting-system user information",
+        "section": "body",
+        "article": 14,
+        "page_start": 9,
+        "page_end": 9,
+        "legal_status": "in_force",
+        "effective_from": "2026-07-06",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": []
+      },
+      {
+        "key": "art_23",
+        "locator": "Pasal 23",
+        "title": "Association data use restrictions and accountability",
+        "section": "body",
+        "article": 23,
+        "page_start": 13,
+        "page_end": 13,
+        "legal_status": "in_force",
+        "effective_from": "2026-07-06",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": []
+      },
+      {
+        "key": "art_33",
+        "locator": "Pasal 33",
+        "title": "Repeal of POJK40 Article187",
+        "section": "body",
+        "article": 33,
+        "page_start": 17,
+        "page_end": 17,
+        "legal_status": "in_force",
+        "effective_from": "2026-07-06",
+        "effective_until": null,
+        "context_refs": [],
+        "rule_ids": []
+      }
+    ],
+    "relationships": [
+      {
+        "relation": "repeals",
+        "target_key": "pojk40_2024",
+        "target_locator": "Pasal 187",
+        "effective_from": "2026-07-06"
+      }
+    ],
+    "expected_phrases": [
+      "NOMOR 8 TAHUN 2026",
+      "Pasal 33",
+      "Pasal 187"
+    ],
+    "download_path": "data/knowledge_sources/collection/pojk8_2026.pdf",
+    "pages_path": "data/knowledge_sources/collection/pojk8_2026.pages.json",
+    "sha256": "cbeb66fc418eb87dc05ccacfb7724c66d7da42858875710e2ef409568adb259d",
+    "extraction_method": "pdf_text",
+    "extraction_review_required": false,
+    "final_url": "https://peraturan.bpk.go.id/Download/416165/peraturan-ojk-no-8-tahun-2026.pdf",
+    "content_type": "application/pdf",
+    "http_status": 200,
+    "byte_size": 2018628,
+    "page_count": 28,
+    "checked_on": "2026-11-07",
+    "approval_status": "draft",
+    "provenance_notes": "Downloaded from an official government domain; PDF signature, SHA256 and extracted page count checked. This is source verification, not legal approval or cryptographic certificate validation. Original Indonesian text is preserved.",
+    "extraction_sha256": "1a5287bed11b27c81e61da9f06ac9e7a2807cf2700695768aeaaea9ad7d21028"
+  }
+]

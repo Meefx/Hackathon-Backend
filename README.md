@@ -118,6 +118,9 @@ app/modules/accounts/service.py    Aging and portfolio reads
 app/modules/dashboard/service.py   Portfolio aggregation
 app/seed.py                        Explicit fictional demo seed
 app/modules/trust/                 Typed routes, service and repository boundary
+app/modules/knowledge_sources/     Curated public PDF archive, draft staging and reviewer API
+app/integrations/knowledge_sources/ Bounded HTTPS downloader and deterministic PDF extraction
+app/policies/corpus/               Pinned source manifests, dates, scopes and provision locators
 app/trust/                         Existing evidence and safety engine
 app/services/dispatch_gate.py      Sole simulated-channel entry point
 migrations/versions/               Accounts and trust versioned schema history
@@ -291,3 +294,60 @@ budget and verifies hashes. Every dependency remains mandatory regardless of wei
 
 The global audit lock serializes trust writes. The sequential local benchmark is not
 a production load test. Browser permission was declined; no visual QA is claimed.
+
+### Public regulatory sources
+
+The [source register](docs/REGULATORY_SOURCES.md) identifies 15 original PDFs and
+61 selected provisions, including amendments, court holdings and official holiday
+decrees. The shared Gemini research was checked against these originals; it is not
+itself a legal source. Original Indonesian text is preserved without machine rewriting.
+
+The latest head, `0006_source_collection_merge`, joins the source archive and team's
+collection migrations without rewriting either history. Apply it to the intended
+PostgreSQL database, then run:
+
+```sh
+uv sync --locked
+uv run alembic upgrade head
+uv run python -m app.modules.knowledge_sources.ingest --use-cache
+```
+
+The CLI uses `DATABASE_URL` (or `TRUST_DATABASE_URL`) from the process environment,
+never dotenv. `--use-cache` accepts only byte/hash-pinned files under
+`data/knowledge_sources/`; otherwise it downloads from the configured HTTPS host
+allowlist. Omit this flag to re-fetch originals. Restrict a run with
+`--source pojk22_2023`, or use `--manifest path/to/curator-controlled.json`.
+Changed PDF bytes fail the manifest pin and require a new source review.
+
+PDFs, extraction sidecars and backups stay outside Git. The local curated sidecars
+preserve exact reviewed page segmentation. A fresh checkout uses pypdf when they
+are absent; a different extraction remains review-required, and scanned/malformed
+content cannot silently become usable knowledge. Publisher availability or extraction
+failure is reported per source, with a nonzero exit if any source fails. OCR is not
+automatically performed by this CLI.
+
+PDF bytes are stored once in PostgreSQL. Scope-specific source records preserve the
+manifest and extraction snapshot; selected passages map to draft KMS documents or
+quarantine reasons. Re-importing the same manifest is idempotent. Correcting extraction
+or metadata appends a new snapshot and preserves history. No archive operation changes
+the scheduler, calendar, recipient checks, tool permissions or dispatch gate.
+
+Reviewer endpoints (authenticated `knowledge`, `qa`, `compliance`, `admin` only):
+
+| Method | Path | Result |
+| --- | --- | --- |
+| GET | `/api/v1/trust/knowledge/sources?limit=25&offset=0` | Scoped, bounded inventory |
+| GET | `/api/v1/trust/knowledge/sources/{source_id}` | Dates, provenance, provision mappings and quarantine reasons |
+| GET | `/api/v1/trust/knowledge/sources/{source_id}/download` | Original PDF attachment, SHA-256 header and audited access |
+
+All imported passages remain `draft` and `review_required`, with reviewer-only access.
+They cannot pass QA or enter normal agent retrieval until a reviewed derivative/version
+is explicitly ingested and independently approved through the existing workflow.
+No API can turn downloaded text into executable rules. A legal status such as
+`in_force` is curated source metadata, not a system-issued legal opinion.
+
+Before migrating a populated database, take a consistent `pg_dump` backup and test
+restore to a separate database. The archive migration refuses a downgrade once it
+contains data; use a forward migration or reviewed recovery plan. Source files are
+public regulatory records, not borrower transcripts. Private operational data remains
+outside this archive and outside the KMS.

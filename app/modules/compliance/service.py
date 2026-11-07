@@ -1,6 +1,6 @@
 import hashlib
 import hmac
-from datetime import timedelta
+from datetime import UTC, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -82,6 +82,8 @@ def evaluate_contact_policy(connection, account_id, now, check_frequency=True):
 
 
 def binding_for(message, case, decision, knowledge_binding, expires_at):
+    if expires_at.tzinfo is None or expires_at.utcoffset() is None:
+        raise ValueError("Approval expiry requires a timezone")
     return {
         "message_id": message["id"],
         "message_version": message["version"],
@@ -95,7 +97,9 @@ def binding_for(message, case, decision, knowledge_binding, expires_at):
         "snapshot_hash": knowledge_binding["snapshot_hash"],
         "knowledge_references": knowledge_binding["references"],
         "citation_ids": message["citation_ids"],
-        "expires_at": expires_at.isoformat(),
+        # PostgreSQL returns timestamptz in the session timezone. Bind the instant
+        # canonically so the same expiry survives a database round trip unchanged.
+        "expires_at": expires_at.astimezone(UTC).isoformat(),
     }
 
 
