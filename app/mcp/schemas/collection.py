@@ -45,6 +45,7 @@ class KnowledgeSnapshot(KnowledgeResult):
     required: bool
     retrieved_at: datetime
     snapshot_hash: str
+    snapshot_hash_version: Literal[1, 2] = 1
 
 
 class DraftRequest(Assignment):

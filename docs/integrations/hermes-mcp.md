@@ -57,9 +57,19 @@ mcp_servers:
 Set `COLLECTFLOW_MCP_URL` and the same MCP token in the **remote Hermes profile's
 environment**, not in prompts or committed configuration. Hermes documents
 `${ENV_VAR}` substitution for MCP URL and headers. Reload/restart that profile's
-MCP connection using its supported operator controls, then verify `/v1/toolsets`
-actually lists the CollectFlow tools before running business tasks. A successful
-local MCP SDK test or Hermes capability probe alone does not establish that link.
+MCP connection using its supported operator controls. Use the console connection
+test to discover all seven tools, then run one bounded synthetic task and verify
+its native MCP calls and persisted artifact. A successful local MCP SDK test or
+Hermes capability probe alone does not establish the complete link.
+
+The deployed API's `/v1/toolsets` endpoint lists configurable built-in/plugin
+groups and deliberately excludes default MCP servers. An absent CollectFlow
+entry there is not evidence that loading failed. The API agent's tool resolver
+does include enabled default MCP servers, unless its platform selection excludes
+them or `agent.disabled_toolsets` suppresses them. The native toolset is
+`mcp-collectflow` (alias `collectflow`); use the actual tool names presented by the
+runtime rather than assuming a particular underscore prefix. This API has no
+verified public endpoint for the agent's fully resolved MCP tool inventory.
 
 The explicit `trust: full` applies only to this locally controlled, narrow
 CollectFlow server and matches the documented Hermes default. On `trust: untrusted`,

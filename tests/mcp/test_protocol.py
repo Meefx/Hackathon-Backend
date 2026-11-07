@@ -57,6 +57,38 @@ class FixtureDomain:
             "status": "early",
         }
 
+    def retrieve_approved_context(self, run_id, query, *, caller):
+        return {
+            "id": "snapshot-critical-1",
+            "run_id": run_id,
+            "status": "ready",
+            "source_mode": "knowledge_module",
+            "sources": [],
+            "required": True,
+            "retrieved_at": "2026-11-07T03:00:00Z",
+            "snapshot_hash": "version-two-fixture-hash",
+            "snapshot_hash_version": 2,
+            "critical_context": [
+                {
+                    "document_id": "document-1",
+                    "document_version": "1",
+                    "chunk_id": "exception-1",
+                    "locator": "section-2",
+                    "text": "Kesulitan bayar memerlukan petugas manusia.",
+                    "content_hash": "raw-exception-hash",
+                }
+            ],
+            "verification_profile": {
+                "embedding_profile": "local_hash_v1_nonsemantic",
+                "semantic_embeddings": False,
+                "source_correctness_verified_by_code": False,
+                "review_depth": "critical",
+                "retrieved_text_is_untrusted": True,
+                "critical_integrity_checks": True,
+                "context_expansion": "full_source_within_budget",
+            },
+        }
+
 
 @contextmanager
 def listener(service=None):
@@ -115,6 +147,33 @@ async def test_initialize_discover_and_structured_call_over_real_http():
                     assert not result.isError
                     assert result.structuredContent["id"] == "ACC-001"
                     assert result.structuredContent["outstanding_amount"] == 100000
+
+
+@pytest.mark.anyio
+async def test_critical_context_survives_protocol_roundtrip():
+    with listener() as url:
+        async with httpx.AsyncClient(headers={"Authorization": f"Bearer {TOKEN}"}) as http:
+            async with streamable_http_client(url, http_client=http) as (read, write, _):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    result = await session.call_tool(
+                        "retrieve_approved_context",
+                        {
+                            "request": {
+                                **ASSIGNMENT,
+                                "query": "SOP kesulitan bayar",
+                                "purpose": "collection_draft",
+                                "deadline_at": "2026-11-07T04:00:00Z",
+                            },
+                        },
+                    )
+                    assert not result.isError
+                    evidence = result.structuredContent
+                    assert evidence["snapshot_hash_version"] == 2
+                    assert evidence["critical_context"][0]["locator"] == "section-2"
+                    assert evidence["critical_context"][0]["content_hash"] == "raw-exception-hash"
+                    assert evidence["verification_profile"]["critical_integrity_checks"] is True
+                    assert evidence["verification_profile"]["semantic_embeddings"] is False
 
 
 @pytest.mark.anyio

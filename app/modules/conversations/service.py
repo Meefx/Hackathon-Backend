@@ -1,19 +1,21 @@
+from dataclasses import replace
 from uuid import uuid4
 
 from psycopg.types.json import Jsonb
 
 from app.db.connection import connect
-from app.integrations.channels.contracts import AuthorizedIntent
-from app.integrations.channels.gateway import ChannelGateway
 from app.integrations.knowledge.gateway import get_gateway
 from app.modules.audit.service import append_event
 from app.modules.cases.repository import lock_case
-from app.modules.compliance.service import (
-    binding_for,
-    evaluate_contact_policy,
-    issue_approval,
-    sign_binding,
+from app.modules.compliance.rendering import render_message
+from app.modules.compliance.screening import (
+    attest_candidate,
+    inbound_categories,
+    screen_candidate,
 )
+from app.modules.compliance.service import evaluate_contact_policy
+from app.modules.conversations.dispatch import simulate_dispatch  # noqa: F401
+from app.modules.conversations.repository import save_binding, template_binding
 from app.modules.conversations.schemas import Message
 from app.modules.knowledge_context.service import validate_citations
 from app.modules.reviews.service import open_review
@@ -62,8 +64,17 @@ def receive_message(settings, account_id, request, caller, now):
                 now,
             ),
         )
+        categories = inbound_categories(request.text)
         if request.demo_scenario in ("hardship", "dispute", "human_request"):
-            open_review(connection, account_id, request.demo_scenario, now)
+            categories = sorted(set(categories) | {request.demo_scenario})
+        if categories:
+            kind = "dispute" if "dispute" in categories else "hardship"
+            open_review(connection, account_id, kind, now)
+        if {"stop_request", "third_party_responder"} & set(categories):
+            connection.execute(
+                "UPDATE collection_authorities SET opted_out=true WHERE account_id=%s",
+                (account_id,),
+            )
         append_event(connection, account_id, "message_received", caller.actor_kind, "received", now)
         record(connection, scope, str(request.idempotency_key), payload, message)
         return message
@@ -71,6 +82,19 @@ def receive_message(settings, account_id, request, caller, now):
 
 def submit_draft(settings, candidate, caller, now):
     with connect(settings.database_url) as connection:
+        # Producer locks precede all operational/account locks.
+        connection.execute("SELECT pg_advisory_xact_lock(71107002)")
+        gateway = get_gateway(settings)
+        template = None
+        if candidate.template_id:
+            if not hasattr(gateway, "load_template"):
+                raise DomainError("knowledge_atomic_validation_unavailable")
+            template = gateway.load_template(
+                connection,
+                candidate.template_id,
+                replace(caller, account_id=candidate.account_id),
+                now,
+            )
         lock_case(connection, candidate.account_id)
         run = require_run(connection, candidate.run_id, True)
         scope = "draft:" + candidate.run_id
@@ -89,24 +113,23 @@ def submit_draft(settings, candidate, caller, now):
         if job["execution_attempt_id"] != candidate.execution_attempt_id:
             raise DomainError("assignment_denied", "Execution attempt does not match", 403)
         snapshot, _refs = validate_citations(connection, run["id"], candidate.citation_ids)
+        if template and not set(template["document_ids"]).issubset(
+            {ref.document_id for ref in _refs}
+        ):
+            raise DomainError("knowledge_reference_invalid", "Template evidence is incomplete")
         account = connection.execute(
             "SELECT * FROM accounts WHERE id=%s", (candidate.account_id,)
         ).fetchone()
-        text = candidate.text_with_placeholders
-        facts = {
-            "borrower_name": account["borrower_name"],
-            "outstanding_amount": f"Rp{account['outstanding_amount']:,}".replace(",", "."),
-            "loan_reference": account["loan_reference"],
-            "due_date": str(account["due_date"]),
-        }
-        for name, value in facts.items():
-            text = text.replace("{" + name + "}", str(value))
-        if "{" in text or "}" in text:
-            raise DomainError("result_invalid", "Unknown fact placeholder")
+        body = template["body"] if template else candidate.text_with_placeholders
+        # A template candidate must match the exact approved artifact. No caller
+        # supplied body can be smuggled through an unrelated template ID.
+        if template and candidate.text_with_placeholders != body:
+            raise DomainError("template_content_mismatch", "Candidate differs from template")
+        text = render_message(body, account)
         decision = evaluate_contact_policy(connection, candidate.account_id, now)
-        forbidden = any(term in text.casefold() for term in ("ancam", "penjara", "permalukan"))
         mode = run["requested_runtime_mode"]
-        approved = decision["allowed"] and mode == "simulated" and not forbidden
+        screening = screen_candidate(text, mode=mode, fixture_enabled=settings.demo_fixture_enabled)
+        approved = decision["allowed"] and screening["result"] == "ALLOW" and mode == "simulated"
         message = {
             "id": str(uuid4()),
             "account_id": candidate.account_id,
@@ -134,8 +157,11 @@ def submit_draft(settings, candidate, caller, now):
                 now,
             ),
         )
+        template = template_binding(template)
+        save_binding(connection, message["id"], snapshot, template)
+        snapshot = {**snapshot, "template_binding": template}
         if approved:
-            issue_approval(connection, message, decision, snapshot, settings, now, mode)
+            attest_candidate(connection, message, decision, snapshot, settings, now, mode)
         connection.execute(
             "INSERT INTO run_artifacts VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
             (
@@ -160,115 +186,8 @@ def submit_draft(settings, candidate, caller, now):
             []
             if approved
             else decision["reason_codes"]
-            or ["guardrail_rejected" if forbidden else "guardrail_unavailable"],
+            or [code.lower() for code in screening["reason_codes"]]
+            or ["guardrail_rejected"],
         )
         record(connection, scope, str(candidate.idempotency_key), payload, message)
         return message
-
-
-def simulate_dispatch(settings, message_id, request, caller, now):
-    # The only available channel is a pure local simulator: there is no network in this transaction.
-    with connect(settings.database_url) as connection:
-        message = connection.execute(
-            "SELECT * FROM collection_messages WHERE id=%s", (message_id,)
-        ).fetchone()
-        if not message:
-            raise DomainError("not_found", "Message not found", 404)
-        case = lock_case(connection, message["account_id"])
-        message = connection.execute(
-            "SELECT * FROM collection_messages WHERE id=%s FOR UPDATE", (message_id,)
-        ).fetchone()
-        payload = request.model_dump(mode="json")
-        scope = "dispatch:" + message_id
-        if old := replay(connection, scope, str(request.idempotency_key), payload):
-            return old
-        if message["version"] != request.expected_message_version:
-            raise DomainError("version_conflict", "Message version has changed")
-        decision = evaluate_contact_policy(connection, message["account_id"], now)
-        reasons = list(decision["reason_codes"])
-        origin = require_run(connection, message["run_id"], True) if message["run_id"] else None
-        if (
-            not origin
-            or origin["status"] != "completed"
-            or origin["outcome"] != "draft_created"
-            or origin["cancellation_requested_at"]
-        ):
-            reasons.append("run_not_accepted")
-        approval = connection.execute(
-            "SELECT * FROM message_approvals WHERE message_id=%s", (message_id,)
-        ).fetchone()
-        if not approval:
-            reasons.append("approval_invalid")
-        elif approval["expires_at"] <= now:
-            reasons.append("approval_expired")
-        elif message["run_id"]:
-            snapshot, refs = validate_citations(
-                connection, message["run_id"], message["citation_ids"]
-            )
-            binding = binding_for(message, case, decision, snapshot, approval["expires_at"])
-            import hmac
-
-            if binding != approval["binding"] or not hmac.compare_digest(
-                approval["attestation"],
-                sign_binding(binding, settings.approval_hmac_secret.get_secret_value()),
-            ):
-                reasons.append("approval_invalid")
-            try:
-                valid = get_gateway(settings).validate_references(refs, now, caller)
-                if not valid.valid:
-                    reasons.append("knowledge_reference_invalid")
-            except Exception:  # noqa: BLE001 - dependency failures must fail closed
-                reasons.append("knowledge_unavailable")
-        if connection.execute(
-            "SELECT id FROM dispatch_receipts WHERE message_id=%s", (message_id,)
-        ).fetchone():
-            reasons.append("already_dispatched")
-        if message["direction"] != "outbound" or message["status"] != "draft":
-            reasons.append("message_not_dispatchable")
-        status = "blocked"
-        if not reasons:
-            adapter = ChannelGateway().resolve(message["channel"])
-            receipt = adapter.dispatch(
-                AuthorizedIntent(
-                    str(request.idempotency_key),
-                    message_id,
-                    message["account_id"],
-                    case["recipient_id"],
-                    message["text"],
-                )
-            )
-            connection.execute(
-                "INSERT INTO dispatch_receipts VALUES (%s,%s,%s,%s,%s,%s)",
-                (
-                    receipt["id"],
-                    message_id,
-                    message["account_id"],
-                    str(request.idempotency_key),
-                    receipt["status"],
-                    now,
-                ),
-            )
-            connection.execute(
-                "UPDATE collection_messages SET status='simulated_sent',version=version+1 "
-                "WHERE id=%s",
-                (message_id,),
-            )
-            status = "simulated_sent"
-        event = append_event(
-            connection,
-            message["account_id"],
-            "simulate_dispatch",
-            caller.actor_kind,
-            status,
-            now,
-            message["run_id"],
-            reasons,
-        )
-        result = {
-            "message_id": message_id,
-            "status": status,
-            "reason_codes": reasons,
-            "audit_event_id": event["id"],
-        }
-        record(connection, scope, str(request.idempotency_key), payload, result)
-        return result

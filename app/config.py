@@ -1,5 +1,5 @@
-from datetime import datetime
 from dataclasses import dataclass, field
+from datetime import datetime
 from functools import lru_cache
 
 from psycopg import ProgrammingError

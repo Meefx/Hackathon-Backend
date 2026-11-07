@@ -10,7 +10,7 @@ from psycopg_pool import ConnectionPool
 
 from app.config import get_settings
 
-REQUIRED_REVISION = "0004_collection_trust_merge"
+REQUIRED_REVISION = "0005_knowledge_collection"
 
 
 @contextmanager
@@ -35,8 +35,10 @@ def check_ready(database_url: str) -> bool:
         )
         connection.execute("SELECT id FROM collection_runs LIMIT 0")
         connection.execute("SELECT id FROM collection_holds LIMIT 0")
+        connection.execute("SELECT account_id FROM collection_authorities LIMIT 0")
         connection.execute("SELECT seq, hash, prev_hash FROM trust.audit_events LIMIT 0")
         connection.execute("SELECT embedding::public.vector FROM trust.knowledge_chunks LIMIT 0")
+        connection.execute("SELECT status, policy_version FROM trust.attempts LIMIT 0")
         return version is not None and version["version_num"] == REQUIRED_REVISION
 
 

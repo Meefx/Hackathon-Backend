@@ -12,6 +12,7 @@ from app.integrations.agents.contracts import (
     RuntimeError,
     RuntimeProbe,
     RuntimeRequest,
+    RuntimeState,
     RuntimeStatus,
     RuntimeSubmission,
 )
@@ -149,7 +150,7 @@ class HermesClient:
         external_status = value.get("status")
         if not isinstance(external_status, str):
             external_status = "unknown"
-        states = {
+        states: dict[str, RuntimeState] = {
             "started": "running",
             "pending": "queued",
             "queued": "queued",

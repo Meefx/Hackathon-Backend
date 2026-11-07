@@ -47,7 +47,12 @@ def execute_simulated(settings, run, attempt, fence, now, snapshot):
             finish(connection, run["id"], "cancelled", None, "Cancelled before generation", now)
             return
         add_step(connection, run["id"], "manager", "Manager accepted account task (simulated)", now)
-        add_step(connection, run["id"], "knowledge", "Approved demo fixture retrieved", now)
+        source_label = (
+            "Approved knowledge module context retrieved"
+            if snapshot["source_mode"] == "knowledge_module"
+            else "Approved demo fixture retrieved"
+        )
+        add_step(connection, run["id"], "knowledge", source_label, now)
     citations = [s["citation_id"] for s in snapshot["sources"]]
     scenario = run["payload"].get("demo_scenario")
     if scenario in ("hardship", "dispute", "human_request"):

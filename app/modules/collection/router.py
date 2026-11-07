@@ -78,7 +78,7 @@ def run_history(
     with connect(get_settings().database_url) as connection:
         lock_case(connection, account_id)
         query = "SELECT * FROM collection_runs WHERE account_id=%s AND caller_id=%s"
-        params = (account_id, Caller().principal_id)
+        params: tuple[str, ...] = (account_id, Caller().principal_id)
         if request_key:
             query += " AND request_key=%s"
             params += (request_key,)
@@ -153,15 +153,7 @@ def manager_turns(session_id: str, limit: Limit = 20, offset: Offset = 0):
 
 @router.get("/runs/{run_id}/knowledge", response_model=Page[KnowledgeSnapshot])
 def knowledge(run_id: str, limit: Limit = 20, offset: Offset = 0):
-    with connect(get_settings().database_url) as connection:
-        runs_repo.require_run(connection, run_id)
-        return page(
-            connection,
-            "SELECT * FROM knowledge_snapshots WHERE run_id=%s ORDER BY retrieved_at,id",
-            (run_id,),
-            limit,
-            offset,
-        )
+    return CollectionService().get_knowledge_history(run_id, limit=limit, offset=offset)
 
 
 @router.get("/accounts/{account_id}/messages", response_model=Page[Message])
@@ -177,7 +169,7 @@ def receive_message(account_id: str, request: ReceiveMessageRequest):
 
 @router.post("/messages/{message_id}/simulate-dispatch", response_model=DispatchResult)
 def dispatch(message_id: str, request: DispatchRequest):
-    return conversations.simulate_dispatch(get_settings(), message_id, request, Caller(), utcnow())
+    return conversations.simulate_dispatch(get_settings(), message_id, request, Caller(), utcnow)
 
 
 @router.get("/policies/current", response_model=CurrentPolicy)
@@ -217,7 +209,7 @@ def resume(account_id: str, request: CaseActionRequest):
 def review_list(limit: Limit = 20, offset: Offset = 0, status: str | None = None):
     with connect(get_settings().database_url) as connection:
         query = "SELECT * FROM collection_reviews"
-        params = ()
+        params: tuple[str, ...] = ()
         if status:
             query += " WHERE status=%s"
             params = (status,)

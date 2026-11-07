@@ -54,8 +54,8 @@ def test_main_registers_only_versioned_trust_routes(monkeypatch, trust_dsn):
             response = client.post(
                 "/api/v1/trust/cases", json={"is_synthetic": True}, headers=headers
             )
-            assert response.status_code == 200
-            assert response.json()["is_synthetic"] is True
+            assert response.status_code == 409
+            assert response.json()["code"] == "legacy_case_mapping_required"
             assert (
                 client.post(
                     "/api/v1/trust/cases", json={"is_synthetic": True}, headers=headers

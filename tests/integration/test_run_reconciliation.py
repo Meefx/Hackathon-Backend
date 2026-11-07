@@ -42,7 +42,12 @@ def test_reconciliation_polls_existing_external_run_without_resubmit(database_ur
         "app.integrations.hermes.runtime.create_hermes_runtime", lambda _: Runtime()
     )
     with TestClient(create_app()) as client:
-        payload = {"action": "reconcile", "expected_version": 1, "idempotency_key": str(uuid4())}
+        version = client.get(f"/api/v1/runs/{run['run_id']}").json()["version"]
+        payload = {
+            "action": "reconcile",
+            "expected_version": version,
+            "idempotency_key": str(uuid4()),
+        }
         response = client.post(f"/api/v1/runs/{run['run_id']}/recover", json=payload)
         assert response.status_code == 200, response.text
         assert response.json()["status"] == "cancelled"

@@ -84,7 +84,12 @@ def execute_hermes(settings, run, attempt, fence, now, execution):
         raise DomainError("runtime_unavailable", "Hermes runtime is unavailable")
     now = utcnow()
     with connect(settings.database_url) as connection:
-        verify_fence(connection, run["id"], attempt, fence, now)
+        current = verify_fence(connection, run["id"], attempt, fence, now)
+        if current["cancellation_requested_at"]:
+            finish(
+                connection, run["id"], "cancelled", None, "Cancelled before runtime admission", now
+            )
+            return
         turns = connection.execute(
             "SELECT role,content FROM manager_turns WHERE session_id=%s "
             "AND turn_index<%s ORDER BY turn_index,CASE role WHEN 'operator' THEN 0 ELSE 1 END",
@@ -117,8 +122,14 @@ def execute_hermes(settings, run, attempt, fence, now, execution):
         instruction=run["payload"]["instruction"],
         history=history,
     )
+    now = utcnow()
     with connect(settings.database_url) as connection:
-        verify_fence(connection, run["id"], attempt, fence, now)
+        current = verify_fence(connection, run["id"], attempt, fence, now)
+        if current["cancellation_requested_at"]:
+            finish(
+                connection, run["id"], "cancelled", None, "Cancelled before runtime admission", now
+            )
+            return
         connection.execute(
             "UPDATE collection_jobs SET checkpoint='submitting' WHERE run_id=%s", (run["id"],)
         )
@@ -160,6 +171,7 @@ def execute_hermes(settings, run, attempt, fence, now, execution):
             if continue_polling:
                 pass
             elif status.status == "completed" and not cancel and status.final_result:
+                execution["terminal_confirmed"] = True
                 result_status, outcome, reasons = validate_final(
                     connection, run, status.final_result
                 )
@@ -201,7 +213,7 @@ def process_once(settings=None, now=None, worker_id=None):
     if not claimed:
         return False
     run, attempt, fence = claimed
-    execution = {"submission_started": False, "external_run_id": None}
+    execution = {"submission_started": False, "external_run_id": None, "terminal_confirmed": False}
     try:
         scenario = run["payload"].get("demo_scenario")
         outbound = run["payload"]["task_type"] == "follow_up" and scenario not in (
@@ -255,9 +267,13 @@ def process_once(settings=None, now=None, worker_id=None):
                 verify_fence(connection, run["id"], attempt, fence, now)
             except DomainError:
                 return True
-            ambiguous = (isinstance(exc, RuntimeError) and exc.ambiguous) or bool(
-                execution["submission_started"]
-            )
+            if isinstance(exc, RuntimeError):
+                ambiguous = exc.ambiguous
+            else:
+                ambiguous = bool(
+                    execution["submission_started"] and not execution["terminal_confirmed"]
+                )
+            failure_status = "failed" if execution["terminal_confirmed"] else "blocked"
             if execution["external_run_id"]:
                 connection.execute(
                     "UPDATE collection_runs SET external_run_id=COALESCE("
@@ -272,7 +288,7 @@ def process_once(settings=None, now=None, worker_id=None):
             finish(
                 connection,
                 run["id"],
-                "interrupted" if ambiguous else "blocked",
+                "interrupted" if ambiguous else failure_status,
                 None,
                 "Task stopped by backend validation",
                 now,

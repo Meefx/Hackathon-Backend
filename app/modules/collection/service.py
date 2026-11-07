@@ -1,7 +1,9 @@
 """Explicit public service boundary shared by REST, MCP, and worker adapters."""
 
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -14,9 +16,14 @@ from app.integrations.knowledge.gateway import get_gateway
 from app.modules.accounts.service import get_account
 from app.modules.compliance.service import evaluate_contact_policy
 from app.modules.conversations import service as conversations
+from app.modules.conversations.redaction import sanitize_conversation
 from app.modules.conversations.schemas import DraftCandidate
 from app.modules.knowledge_context.contracts import KnowledgeQuery
-from app.modules.knowledge_context.service import persist_snapshot, validate_citations
+from app.modules.knowledge_context.service import (
+    list_snapshots,
+    persist_snapshot,
+    validate_citations,
+)
 from app.modules.reviews import service as reviews
 from app.modules.runs.repository import check_assignment, require_run
 from app.modules.runs.schemas import ArtifactCandidate
@@ -36,7 +43,11 @@ class CollectionService:
         self.clock = clock or utcnow
 
     def authorize(
-        self, connection: Connection, caller: Caller, account_id: str, run_id: str | None = None
+        self,
+        connection: Connection[dict[str, Any]],
+        caller: Caller,
+        account_id: str,
+        run_id: str | None = None,
     ) -> None:
         check_assignment(connection, caller, account_id, run_id or caller.run_id, self.clock())
 
@@ -67,11 +78,26 @@ class CollectionService:
                 "ORDER BY created_at,id LIMIT %s OFFSET %s",
                 (account_id, min(limit, 100), offset),
             ).fetchall()
-            total = connection.execute(
+            total_row = connection.execute(
                 "SELECT count(*) AS n FROM collection_messages WHERE account_id=%s", (account_id,)
-            ).fetchone()["n"]
+            ).fetchone()
+            total = total_row["n"] if total_row else 0
+            messages = [conversations.message_json(r) for r in items]
+            if caller.actor_kind in {"agent", "worker"}:
+                account = get_account(
+                    self.settings.database_url,
+                    account_id,
+                    self.clock().astimezone(ZoneInfo("Asia/Jakarta")).date(),
+                )
+                identifiers: tuple[str, ...] = (account_id,)
+                if account:
+                    identifiers += (account["borrower_name"], account["loan_reference"])
+                messages = [
+                    {**message, "text": sanitize_conversation(message["text"], identifiers)}
+                    for message in messages
+                ]
             return {
-                "items": [conversations.message_json(r) for r in items],
+                "items": messages,
                 "total": total,
                 "limit": min(limit, 100),
                 "offset": offset,
@@ -86,7 +112,8 @@ class CollectionService:
             run = require_run(connection, run_id)
             self.authorize(connection, caller, run["account_id"], run_id)
         try:
-            result = get_gateway(self.settings).query_approved(request, caller)
+            scoped_caller = replace(caller, account_id=run["account_id"], run_id=run_id)
+            result = get_gateway(self.settings).query_approved(request, scoped_caller)
         except Exception:  # noqa: BLE001 - dependency failures must fail closed
             from app.modules.knowledge_context.contracts import KnowledgeResult
 
@@ -98,6 +125,14 @@ class CollectionService:
         with connect(self.settings.database_url) as connection:
             self.authorize(connection, caller, run["account_id"], run_id)
             return persist_snapshot(connection, run_id, result, self.clock())
+
+    def get_knowledge_history(
+        self, run_id: str, caller: Caller = LOCAL_OPERATOR, limit: int = 20, offset: int = 0
+    ) -> dict:
+        with connect(self.settings.database_url) as connection:
+            run = require_run(connection, run_id)
+            self.authorize(connection, caller, run["account_id"], run_id)
+            return list_snapshots(connection, run_id, limit, offset)
 
     def submit_draft_candidate(
         self, candidate: DraftCandidate | dict, caller: Caller = LOCAL_OPERATOR
@@ -130,6 +165,7 @@ class CollectionService:
             if (
                 run["account_id"] != candidate.account_id
                 or run["status"] != "running"
+                or job is None
                 or job["execution_attempt_id"] != candidate.execution_attempt_id
             ):
                 raise DomainError("assignment_denied", "Active execution required", 403)
@@ -196,11 +232,12 @@ class CollectionService:
             review_id = reviews.open_review(
                 connection, account_id, reason, self.clock(), request.get("run_id")
             )
-            result = dict(
-                connection.execute(
-                    "SELECT * FROM collection_reviews WHERE id=%s", (review_id,)
-                ).fetchone()
-            )
+            review = connection.execute(
+                "SELECT * FROM collection_reviews WHERE id=%s", (review_id,)
+            ).fetchone()
+            if review is None:
+                raise DomainError("not_found", "Review not found", 404)
+            result = dict(review)
             from app.modules.reviews.schemas import ReviewItem
 
             result = ReviewItem.model_validate(result).model_dump(mode="json")

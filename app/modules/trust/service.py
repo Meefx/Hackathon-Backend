@@ -76,12 +76,15 @@ class TrustService:
         capability: str,
         payload: dict[str, Any],
         action: Callable[[Connection[dict[str, Any]]], dict[str, Any]],
+        authorize: Callable[[Connection[dict[str, Any]]], Any] | None = None,
     ) -> dict[str, Any]:
         # Authorization precedes replay, including callers sharing a subject ID.
         require(who, capability)
         request_hash = hashlib.sha256(canonical(payload).encode()).hexdigest()
         with self.database.connection() as conn:
             repository.lock_write(conn, who, key, route)
+            if authorize:
+                authorize(conn)
             previous = repository.previous_request(conn, who, key, route)
             if previous:
                 if previous["request_hash"] != request_hash or previous["actor_id"] != who.subject:
@@ -188,16 +191,15 @@ class TrustService:
         )
 
     def create_case(self, who: Actor, key: UUID, data: dict[str, Any]) -> dict[str, Any]:
-        return self._write(
-            who,
-            key,
-            "case",
-            "case:create",
-            data,
-            lambda conn: runtime.create_case(conn, who, data, self.clock.now()),
-        )
+        require(who, "case:create")
+        # This endpoint has no account identifier to validate a persisted mapping.
+        # A historical request response cannot authorize new case provisioning.
+        raise TrustError("legacy_case_mapping_required", 409)
 
     def outreach(self, who: Actor, key: UUID, case_id: UUID, template_id: UUID) -> dict[str, Any]:
+        require(who, "attempt:create")
+        from app.modules.conversations.compatibility import mapped_account
+
         return self._write(
             who,
             key,
@@ -214,11 +216,15 @@ class TrustService:
                 self.clock,
                 self.classifier,
             ),
+            authorize=lambda conn: mapped_account(conn, who, case_id),
         )
 
     def receive_conversation(
         self, who: Actor, key: UUID, case_id: UUID, data: dict[str, Any]
     ) -> dict[str, Any]:
+        require(who, "conversation:write")
+        from app.modules.conversations.compatibility import mapped_account
+
         return self._write(
             who,
             key,
@@ -228,6 +234,7 @@ class TrustService:
             lambda conn: runtime.receive_conversation(
                 conn, who, str(case_id), data["text"], self.clock.now()
             ),
+            authorize=lambda conn: mapped_account(conn, who, case_id),
         )
 
     def conversations(self, who: Actor, case_id: UUID) -> list[dict]:

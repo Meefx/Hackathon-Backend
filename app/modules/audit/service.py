@@ -6,7 +6,8 @@ from app.shared.idempotency import digest
 
 
 def append_event(
-    connection, account_id, action, actor_kind, outcome, now, run_id=None, reason_codes=None
+    connection, account_id, action, actor_kind, outcome, now, run_id=None, reason_codes=None,
+    *, correlation_id: str | None = None,
 ):
     # Account lock serializes all account effects and the append-only hash chain.
     connection.execute("SELECT id FROM accounts WHERE id=%s FOR UPDATE", (account_id,))
@@ -22,7 +23,7 @@ def append_event(
         "actor_kind": actor_kind,
         "outcome": outcome,
         "reason_codes": reason_codes or [],
-        "correlation_id": str(uuid4()),
+        "correlation_id": correlation_id or str(uuid4()),
         "created_at": now.isoformat(),
         "previous_hash": previous["event_hash"] if previous else None,
     }

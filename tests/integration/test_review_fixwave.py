@@ -9,6 +9,7 @@ from psycopg.types.json import Jsonb
 from app.config import get_settings
 from app.db.connection import connect
 from app.integrations.agents.contracts import RuntimeProbe, RuntimeStatus, RuntimeSubmission
+from app.integrations.knowledge.gateway import DemoKnowledgeGateway
 from app.modules.cases.schemas import CaseActionRequest
 from app.modules.conversations.schemas import DispatchRequest
 from app.modules.conversations.service import simulate_dispatch
@@ -302,3 +303,49 @@ def test_provider_return_rechecks_clock_and_locked_cancellation(database_url, mo
         assert result["status"] != "completed"
         if change == "cancel":
             assert result["status"] == "interrupted"
+
+
+def test_repeated_snapshot_cannot_rebind_original_citation(database_url):
+    run, message = ready_draft(database_url)
+    query = type("Query", (), {})()
+    result = DemoKnowledgeGateway().query_approved(query, Caller())
+    with connect(database_url) as connection:
+        persist_snapshot(connection, run["run_id"], result, NOW)
+        binding = connection.execute(
+            "SELECT binding FROM message_approvals WHERE message_id=%s", (message["id"],)
+        ).fetchone()["binding"]
+        assert binding["knowledge_references"][0]["snapshot_id"]
+    dispatched = simulate_dispatch(
+        get_settings(),
+        message["id"],
+        DispatchRequest(expected_message_version=1, idempotency_key=uuid4()),
+        Caller(),
+        NOW,
+    )
+    assert dispatched["status"] == "simulated_sent"
+
+
+def test_cancel_during_probe_never_admits_external_work(database_url, monkeypatch):
+    runtime = Runtime()
+    settings, run = hermes_setup(database_url, monkeypatch, runtime)
+
+    def probe():
+        with connect(database_url) as connection:
+            connection.execute(
+                "UPDATE collection_runs SET cancellation_requested_at=%s WHERE id=%s",
+                (NOW, run["run_id"]),
+            )
+        return RuntimeProbe(available=True, actual_runtime_mode="hermes")
+
+    runtime.probe = probe
+
+    def submit(*_):
+        pytest.fail("A cancelled task must never be admitted")
+
+    runtime.submit = submit
+    worker.process_once(settings, now=NOW)
+    with connect(database_url) as connection:
+        state = connection.execute(
+            "SELECT status FROM collection_runs WHERE id=%s", (run["run_id"],)
+        ).fetchone()["status"]
+        assert state == "cancelled"

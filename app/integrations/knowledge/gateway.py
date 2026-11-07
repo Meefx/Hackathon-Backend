@@ -39,13 +39,34 @@ class DemoKnowledgeGateway:
             or s.document_version != "1"
             or s.content_hash != digest(EXCERPT)
             or s.excerpt != EXCERPT
+            or s.snippet_id != "respectful-contact"
+            or s.citation_id != "demo-sop-v1-contact"
+            or s.document_hash is not None
+            or s.snippet_hash is not None
+            or s.effective_from is not None
+            or s.effective_until is not None
+            or s.source_uri is not None
+            or s.approved_at > at
         ]
         return ReferenceValidation(
-            valid=not invalid,
+            valid=bool(references) and not invalid,
             checked_at=at,
             invalid_citation_ids=invalid,
             reference_version="demo-v1",
         )
+
+    def lock_references(self, connection, references, caller):
+        return FixtureReferences(self, references, caller)
+
+
+class FixtureReferences:
+    """The explicitly selected fixture has no mutable producer state or DB locks."""
+
+    def __init__(self, gateway, references, caller):
+        self.gateway, self.references, self.caller = gateway, references, caller
+
+    def validate(self, at):
+        return self.gateway.validate_references(self.references, at, self.caller)
 
 
 class UnavailableKnowledgeGateway:

@@ -83,7 +83,7 @@ def test_cancel_queued_run_is_persisted(database_url):
         run_id = response.json()["run_id"]
         cancelled = client.post(
             f"/api/v1/runs/{run_id}/cancel",
-            json={"expected_version": 1, "idempotency_key": str(uuid4())},
+            json={"expected_version": response.json()["version"], "idempotency_key": str(uuid4())},
         )
         assert cancelled.status_code == 200
         assert cancelled.json()["status"] == "cancelled"

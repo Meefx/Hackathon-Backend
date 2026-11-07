@@ -14,7 +14,7 @@
 
 Fondasi PostgreSQL, Alembic baseline 0001_accounts, Compose, seed/import, portfolio, dan dashboard sudah diimplementasikan. Turn sebelumnya memverifikasi 27 tests PostgreSQL, migration, Compose, HTTP, serta volume persistence. Pada penyusunan rencana v2 ini hanya dilakukan inspeksi read-only.
 
-Fitur di bawah seluruhnya target implementasi. Hermes belum ditemukan pada lingkungan inspeksi. Modul KM teman belum berada di source yang diperiksa. Nama aplikasi tetap CollectFlow.
+Implementasi lokal mencakup durable run/worker, collection, review, MCP, gateway Hermes dan portal consumer. Kontribusi KMS PR #1 terhubung melalui producer domain dan gateway in-process sesuai [plan integrasi PR](2026-11-07-pr1-kms-collection-integration.md). B1/B3/B4/B5/B7 mendapat implementasi dan acceptance integrasi tambahan. Hasil aktual dicatat pada plan integrasi. Acceptance Hermes/classifier live mengikuti B6. Nama aplikasi tetap CollectFlow.
 
 ## Global Constraints
 

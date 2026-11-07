@@ -390,10 +390,14 @@ ada; test unit tidak membuktikan integrasi eksternal atau migration nyata.
 
 - Erwan owns the KMS, guardrails, security and data-processing contribution.
   Read `docs/TRUST_MVP.md` and `docs/SECURITY.md` before safety changes.
-- All UI/API and synthetic borrower copy is English, per direct user instruction.
+- Portal UI/API copy stays English. Main collection drafts and borrower explanations
+  follow the Indonesian product contract. Standalone trust examples retain their
+  English synthetic fixtures.
 - Never read, print, edit or commit `.env`/`.env.*` except `.env.example`, or
   `*.pem`/`*.key`. Never log tokens, raw borrower text or approval material.
-- Only `app/services/dispatch_gate.py` imports channels. No model side-effect tools.
+- Only `app/modules/conversations/dispatch.py` imports the channel gateway.
+  `app/services/dispatch_gate.py` is a compatibility adapter to that domain gate.
+  No model side-effect tools.
   Preserve every safety invariant and regression; injected domain clock is mandatory.
 - Hash vectors and Layer 2 are declared demo baselines; do not claim model quality.
 - Trust tables use a fixed schema: DB-backed tests use disposable databases ending

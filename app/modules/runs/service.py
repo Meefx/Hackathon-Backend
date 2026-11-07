@@ -1,13 +1,28 @@
+from datetime import datetime
 from uuid import uuid4
 
+from psycopg import Connection
 from psycopg.types.json import Jsonb
 
 from app.db.connection import connect
 from app.modules.audit.service import append_event
 from app.modules.cases.repository import lock_case
 from app.modules.runs import repository as repo
+from app.shared.caller import Caller
 from app.shared.errors import DomainError
 from app.shared.idempotency import record, replay
+
+
+def authorize_assignment(
+    connection: Connection,
+    caller: Caller,
+    account_id: str,
+    run_id: str | None,
+    now: datetime,
+    allow_inactive: bool = False,
+) -> None:
+    """Authorize a public run capability without exposing persistence internals."""
+    repo.check_assignment(connection, caller, account_id, run_id, now, allow_inactive)
 
 
 def start_run(settings, account_id, request, caller, now):
@@ -168,20 +183,19 @@ def recover_run(settings, run_id, request, caller, clock):
             raise DomainError("version_conflict", "Run changed during reconciliation")
         if status:
             if status.status == "completed":
-                if not status.final_result:
-                    raise DomainError(
-                        "result_invalid", "Completed runtime lacks a valid final result"
+                summary = "Runtime completed with an invalid business result"
+                try:
+                    if not status.final_result:
+                        raise DomainError(
+                            "result_invalid", "Completed runtime lacks a final result"
+                        )
+                    new_status, outcome, reasons = validate_final(
+                        connection, run, status.final_result
                     )
-                new_status, outcome, reasons = validate_final(connection, run, status.final_result)
-                repo.finish(
-                    connection,
-                    run_id,
-                    new_status,
-                    outcome,
-                    status.final_result.summary,
-                    now,
-                    reasons,
-                )
+                    summary = status.final_result.summary
+                except DomainError as error:
+                    new_status, outcome, reasons = "failed", None, [error.code]
+                repo.finish(connection, run_id, new_status, outcome, summary, now, reasons)
             else:
                 repo.finish(
                     connection,
