@@ -7,8 +7,7 @@ from app.seed import seed
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "api.db"))
+def client(database_url):
     get_settings.cache_clear()
     with TestClient(create_app()) as test_client:
         yield test_client
@@ -17,6 +16,7 @@ def client(tmp_path, monkeypatch):
 
 def test_health_and_empty_portfolio(client):
     assert client.get("/health").json()["status"] == "ok"
+    assert client.get("/ready").status_code == 200
     assert client.get("/api/v1/dashboard").json()["total_accounts"] == 0
     assert client.get("/api/v1/accounts").json()["items"] == []
 
@@ -48,3 +48,36 @@ def test_seed_search_pagination_and_detail(client):
     assert search["items"][0]["borrower_name"] == "Alex Morgan"
     assert client.get("/api/v1/accounts/CF-1001").json() == search["items"][0]
     assert client.get("/api/v1/dashboard").json()["total_outstanding"] == 21_500_000
+
+
+def test_health_is_independent_of_database_readiness(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://invalid@127.0.0.1:1/absent")
+    get_settings.cache_clear()
+    try:
+        with TestClient(create_app()) as client:
+            assert client.get("/health").status_code == 200
+            assert client.get("/ready").status_code == 503
+    finally:
+        get_settings.cache_clear()
+
+
+def test_search_happens_before_pagination(client):
+    seed()
+    page = client.get("/api/v1/accounts?search=%20LN-100%20&limit=1&offset=7").json()
+    assert page["total"] == 8
+    assert page["items"][0]["id"] == "CF-1008"
+    assert client.get("/api/v1/accounts?search=missing").json()["total"] == 0
+
+
+def test_unmigrated_schema_is_unready_and_startup_does_not_create_tables(database_url):
+    from alembic import command
+
+    from tests.conftest import migration_config
+
+    command.downgrade(migration_config(), "base")
+    with TestClient(create_app()) as client:
+        assert client.get("/health").status_code == 200
+        assert client.get("/ready").status_code == 503
+    command.upgrade(migration_config(), "head")
+    with TestClient(create_app()) as client:
+        assert client.get("/ready").status_code == 200

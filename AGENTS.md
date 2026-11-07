@@ -6,15 +6,18 @@ Berlaku untuk seluruh repository backend. Jika tersedia, baca juga
 `../AGENTS.md` untuk aturan lintas-repo; panduan ini tetap berlaku saat repo
 di-clone sendiri. Instruksi langsung user mengungguli panduan ini.
 
-Stack aktual: Python 3.12+, FastAPI, Pydantic/pydantic-settings, SQLite melalui
-`sqlite3`, uv, pytest, dan Ruff. SQLAlchemy, PostgreSQL, Alembic, queue, dan
-worker, serta SDK/server/client MCP **belum tersedia**. Overview produk menyebut
-sebagian sebagai arah arsitektur; jangan menganggapnya sudah diimplementasikan
-atau mengganti stack sebagai efek samping tugas lain.
+Stack aktual: Python 3.12+, FastAPI, Pydantic/pydantic-settings, PostgreSQL 17
+melalui psycopg, Alembic, uv, pytest, dan Ruff. SQLAlchemy dipakai oleh Alembic
+untuk migration, bukan ORM runtime. Docker Compose menyediakan PostgreSQL,
+migration one-shot, backend, dan profil database test. Queue, worker, dan
+SDK/server/client MCP **belum tersedia**.
 
-Saat ini `app/main.py` berisi route, `app/schemas.py` kontrak respons, dan
-`app/store.py` koneksi, schema SQL, query, serta aging. Struktur di bawah berlaku
-untuk fitur baru dan ekstraksi bertahap saat area terkait disentuh.
+Saat ini `app/main.py` merangkai HTTP, `app/schemas.py` mempertahankan kontrak
+respons, `app/db/connection.py` memiliki transaksi/readiness,
+`app/modules/accounts/` memiliki SQL dan aging, dan
+`app/modules/dashboard/service.py` memiliki agregasi portfolio. `app/store.py`
+sudah diganti oleh modul tersebut. Struktur berikut berlaku untuk penambahan
+fitur dan ekstraksi bertahap pada area yang disentuh.
 
 ## Penempatan kode
 
@@ -26,7 +29,6 @@ app/
   config.py                      # Konfigurasi environment terpusat
   db/
     connection.py                # Connection/session dan lifecycle transaksi
-    metadata.py                  # Jika SQLAlchemy kelak dipakai
   modules/
     accounts/
       __init__.py
@@ -50,7 +52,7 @@ app/
   workflows/                     # Orkestrasi lintas domain bila diperlukan
   shared/                        # Error/clock/primitif yang benar-benar lintas domain
   seed.py                        # Entry point eksplisit data demo
-alembic.ini                      # Setelah tooling migration ditambahkan
+alembic.ini                      # Konfigurasi Alembic yang sudah tersedia
 migrations/
   env.py
   versions/                      # Riwayat migration seluruh database
@@ -68,13 +70,13 @@ tests/
 | Aturan bisnis, eligibility, aging | `service.py` modul pemilik |
 | SELECT/INSERT/UPDATE/DELETE | `repository.py` modul pemilik |
 | Koneksi/session database | `app/db/connection.py` |
-| Perubahan schema/backfill | `migrations/versions/` setelah setup migration |
+| Perubahan schema/backfill | `migrations/versions/` |
 | Data contoh | `app/seed.py` atau helper seed terkait; bukan migration |
 | SDK/provider eksternal | `app/integrations/<provider>/` |
 | MCP server/tool/resource/prompt | `app/mcp/`; memanggil service domain, bukan SQL langsung |
 | Client ke server MCP eksternal | `app/integrations/mcp/`; terpisah dari MCP server sendiri |
 | Konfigurasi | `app/config.py` dan `.env.example` |
-| Test existing bootstrap | Pertahankan `tests/test_api.py` dan `tests/test_store.py` sampai dimigrasikan |
+| Test existing bootstrap | Pertahankan `tests/test_api.py` dan `tests/test_store.py` sebagai suite PostgreSQL yang sudah dimigrasikan |
 
 ## Batas modul dan tanggung jawab
 
@@ -95,8 +97,8 @@ tests/
 - Tentukan satu pemilik transaksi untuk satu use case. Semua write yang harus
   atomik memakai connection/session yang sama; jangan commit sebagian di setiap
   repository bila use case membutuhkan transaksi bersama.
-- Saat mengekstrak `store.py`, pindahkan SQL ke repository dan aging ke service;
-  perbarui seed, tests, dan consumer. Jangan membiarkan dua implementasi aktif.
+- SQL accounts berada di repository dan aging di service. Pertahankan satu
+  implementasi aktif dan perbarui seed, tests, serta consumer ketika berubah.
 - Adapter MCP mengikuti `mcp tool/resource -> service -> repository -> db`.
   Modul domain tidak mengimpor SDK, session, atau transport MCP.
 
@@ -105,7 +107,7 @@ tests/
 - Nama modul/fungsi/variabel `snake_case`, class `PascalCase`, konstanta
   `UPPER_SNAKE_CASE`. Gunakan type hint pada fungsi baru dan batas publik.
   Ikuti Ruff dan batas panjang baris 100 pada `pyproject.toml`.
-- `sqlite3` adalah blocking I/O; gunakan handler sinkron `def` untuk jalur ini.
+- `psycopg` sinkron adalah blocking I/O; gunakan handler sinkron `def` untuk jalur ini.
   Jangan menambahkan blocking database/network call langsung ke event loop
   `async def`. Pakai async hanya dengan dependency async atau offloading yang benar.
 - Gunakan parameterized query, constraint database, dan validasi Pydantic.
@@ -149,14 +151,14 @@ server harus dilakukan serta didokumentasikan saat implementasinya dibuat.
   Jangan membuat implementasi JSON-RPC/handshake sendiri jika SDK sudah menangani.
 - REST dan MCP adalah dua adapter menuju service yang sama. Tool tidak memanggil
   router FastAPI, tidak melakukan HTTP ke backend sendiri, dan tidak mengakses
-  repository/SQLite langsung. Jika use case belum tersedia, buat service domain
+  repository/PostgreSQL langsung. Jika use case belum tersedia, buat service domain
   dahulu, lalu hubungkan adapter yang diperlukan.
 - `app/mcp/server.py` hanya merangkai server, dependency, dan registrasi. Pisahkan
   tool per domain, misalnya `tools/accounts.py`, `tools/compliance.py`, dan
   `tools/conversations.py`; hindari satu file berisi semua tool dan aturan bisnis.
 - Lifecycle koneksi dan session ditangani saat startup/shutdown. Jangan membuka
   server/network connection saat import modul. Tetapkan timeout, batas concurrency,
-  dan cleanup saat cancellation; blocking SQLite tetap harus di-offload dengan benar.
+  dan cleanup saat cancellation; blocking psycopg tetap harus di-offload dengan benar.
 
 ### Tools, resources, dan prompts
 
@@ -270,36 +272,27 @@ server harus dilakukan serta didokumentasikan saat implementasinya dibuat.
 
 ### Kondisi sekarang
 
-`app/store.py:initialize()` hanya menjalankan `CREATE TABLE IF NOT EXISTS` pada
-startup. Itu **bukan migration engine** dan tidak memperbarui tabel existing.
-Mengedit `SCHEMA` saja tidak cukup untuk mengubah database yang sudah berisi data.
-Tidak ada command Alembic yang bisa dipakai sebelum setup di bawah dilakukan.
+Alembic tersedia dan menjadi satu-satunya pemilik DDL. Baseline
+`migrations/versions/0001_accounts.py` membuat tabel accounts PostgreSQL dengan
+PK, UNIQUE loan reference, CHECK nominal nonnegatif, tipe BIGINT IDR, DATE,
+dan index `(due_date, id)`. Koneksi runtime memakai psycopg melalui Settings
+`DATABASE_URL`. Startup dan seed tidak membuat atau memperbarui schema.
+`/health` memeriksa liveness, sedangkan `/ready` memeriksa koneksi dan revision
+schema. Perbarui `REQUIRED_REVISION` di `app/db/connection.py` saat head berubah.
 
-### Standar ketika schema pertama kali berubah
+Jalankan migration eksplisit sebelum API dan seed. Compose memakai service
+`migrate` one-shot setelah PostgreSQL sehat dan sebelum backend dimulai.
+`uv run alembic upgrade head` tersedia untuk host. SQLAlchemy hanya dipakai
+infrastruktur migration. Revision ditulis eksplisit karena tidak ada metadata
+ORM runtime untuk `--autogenerate`.
 
-Gunakan **Alembic** untuk riwayat schema terpusat. Alembic mendukung SQLite;
-adopsinya tidak mengharuskan pindah ke PostgreSQL atau mengganti seluruh
-repository menjadi ORM. Perubahan tooling ini dilakukan bersama perubahan
-schema pertama, bukan hanya karena panduan ini ada.
-
-1. Tambahkan Alembic sebagai dependency tooling, update `pyproject.toml` dan
-   `uv.lock`, lalu buat `alembic.ini`, `migrations/env.py`, dan
-   `migrations/versions/`. Dokumentasikan setup serta command di README.
-2. Ambil lokasi database dari Settings yang sama dengan aplikasi; jangan
-   hardcode path atau commit URL bercredential. Verifikasi target sebelum migrasi.
-3. Buat baseline yang merepresentasikan **schema existing** secara lengkap
-   (kolom, PK, UNIQUE, CHECK, index). Pisahkan revision perubahan fitur berikutnya.
-4. Database kosong harus bisa dibuat dari baseline hingga head. Database lama
-   tanpa version table harus diperiksa kesesuaiannya dengan baseline sebelum
-   di-stamp ke **revision baseline yang tepat**, lalu di-upgrade. Dilarang
-   melakukan `stamp head` untuk menyembunyikan schema yang belum sesuai.
-5. Saat beralih, migration menjadi satu-satunya pemilik DDL. Hapus/ganti jalur
-   startup/seed yang membuat tabel lewat `initialize()` dan perbarui tests terkait.
-   Aplikasi boleh memeriksa versi, tetapi migration dijalankan sebagai langkah
-   eksplisit sebelum service dimulai, bukan otomatis pada setiap worker/request.
-6. Jika tetap memakai `sqlite3` tanpa metadata ORM, tulis revision Alembic secara
-   eksplisit. `--autogenerate` hanya dipakai setelah metadata SQLAlchemy sudah
-   terhubung; hasilnya tetap wajib diperiksa manual.
+File SQLite lama tidak dihapus atau dipakai sebagai database runtime.
+`uv run python -m app.db.import_sqlite /absolute/path/to/snapshot.db` membaca
+snapshot legacy secara read-only dan mengimpor ke PostgreSQL yang sudah dimigrasi.
+Importer memvalidasi data, idempotent untuk row identik, serta rollback seluruh
+transaksi bila ID/reference bentrok. Siapkan snapshot konsisten memakai backup
+API SQLite atau hentikan penulis, lalu verifikasi jumlah/field penting pada
+tujuan. Jangan menjalankan `stamp head` terhadap schema yang belum sesuai.
 
 ### Aturan setiap migration
 
@@ -312,10 +305,9 @@ schema pertama, bukan hanya karena panduan ini ada.
 - Gunakan pola expand/backfill/contract: tambah kolom kompatibel, isi data lama,
   pindahkan consumer, baru hapus kolom lama pada perubahan terpisah. Tetapkan
   default/nullability untuk row existing dan pertimbangkan durasi lock/backfill.
-- Pada SQLite, perubahan constraint/tabel dapat memerlukan Alembic batch mode
-  (`batch_alter_table`). Periksa foreign key, index, trigger bila ada, dan
-  constraint setelah rebuild. Jangan mengasumsikan seluruh DDL bisa di-rollback
-  secara transaksional pada semua database/driver.
+- Tinjau lock, durasi backfill, index, dan constraint PostgreSQL saat migration
+  menyentuh tabel besar. Jangan mengasumsikan operasi seperti CREATE INDEX
+  CONCURRENTLY dapat berjalan dalam transaksi biasa.
 - Migration data hanya untuk transformasi data aplikasi yang diperlukan versi
   schema. Demo seed tetap eksplisit dan idempotent; jangan memasukkan borrower
   demo ke migration produksi atau menjalankan seed otomatis saat startup.
@@ -333,8 +325,8 @@ schema pertama, bukan hanya karena panduan ini ada.
   target dan dampaknya. Persiapan revision dan pengujian pada DB sementara tetap
   dapat dilakukan. Jangan pernah menghapus DB lokal sebagai pengganti migration.
 
-Command berikut adalah **target setelah Alembic terpasang dan dikonfigurasi**;
-jalankan dari root repo, dengan konfigurasi mengarah ke database yang dimaksud:
+Command berikut tersedia dari root repo. Konfigurasi harus mengarah ke
+database yang dimaksud:
 
 ```sh
 uv run alembic revision -m "add account contact status"  # Lalu isi/review operasi
@@ -366,22 +358,22 @@ revision baru di environment tujuan.
 Jalankan dari root backend:
 
 ```sh
-uv sync --locked        # Setup dari lockfile; tidak perlu diulang setiap edit
+uv sync --locked
 uv run ruff check .
-uv run pytest
+docker compose --profile test up -d --wait postgres-test
+TEST_DATABASE_URL=postgresql://collectflow_test:local-test-password@127.0.0.1:5433/collectflow_test \
+  uv run pytest
 ```
 
-Fallback terbatas untuk storage existing tanpa dependency aplikasi:
+Tests memakai PostgreSQL nyata pada database khusus berakhiran `_test`, dengan
+schema acak terisolasi per test, migration nyata, data sintetis, serta clock
+aturan aging deterministik. Jangan arahkan tests ke DB developer atau shared.
+CI menyediakan service PostgreSQL sendiri. Bila port test diganti, sesuaikan
+URL test. Hentikan service test setelah dipakai dengan
+`docker compose --profile test stop postgres-test`.
 
-```sh
-python3 -m unittest discover -s tests -p test_store.py
-```
-
-Fallback tersebut tidak memverifikasi HTTP/FastAPI. Tests harus memakai database
-sementara, data sintetis, clock deterministik, dan tidak bergantung pada DB
-developer, layanan berbayar, atau kontak nyata. Test perubahan schema juga harus
-menggunakan migration setelah tooling tersedia. Perubahan dokumentasi saja cukup
-diverifikasi terhadap file dan konfigurasi aktual.
+Perubahan dokumentasi saja cukup diverifikasi terhadap file dan konfigurasi
+aktual. Laporkan keterbatasan Docker/DB bila checks tidak dapat dijalankan.
 
 Gunakan uv; update manifest dan `uv.lock` bersama saat dependency berubah.
 Jangan commit `.venv`, cache, file database, atau backup. Sebelum menyatakan
