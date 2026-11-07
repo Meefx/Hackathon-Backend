@@ -4,18 +4,22 @@ from app.trust.safety import screen_message
 from app.trust.screening import MockLayer2
 
 
-def screen_candidate(text: str, *, mode: str, fixture_enabled: bool) -> dict:
-    # No live classifier has been integrated. Only explicit simulated fixture mode
-    # may use the deterministic test classifier, including producer-backed evidence.
-    label = MockLayer2().evaluate(text) if mode == "simulated" and fixture_enabled else None
+def screen_candidate(text: str, *, mode: str, fixture_enabled: bool, sandbox: bool = False) -> dict:
+    # Hermes uses the demo classifier only inside a server-verified recipient sandbox.
+    demo = fixture_enabled and (mode == "simulated" or (mode == "hermes" and sandbox))
+    label = MockLayer2().evaluate(text) if demo else None
     return screen_message(text, label)
 
 
 def attest_candidate(connection, message, decision, evidence, settings, now, mode):
+    from app.modules.compliance.sandbox import hermes_sandbox
     from app.modules.compliance.service import issue_approval
 
     screening = screen_candidate(
-        message["text"], mode=mode, fixture_enabled=settings.demo_fixture_enabled
+        message["text"],
+        mode=mode,
+        fixture_enabled=settings.demo_fixture_enabled,
+        sandbox=hermes_sandbox(connection, settings, message),
     )
     if screening["result"] != "ALLOW":
         return False

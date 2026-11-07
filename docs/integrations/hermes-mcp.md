@@ -17,6 +17,14 @@ approval, resume, dispatch, SQL, shell, or arbitrary URL tools. The seven tools 
 `retrieve_approved_context`, `submit_draft_candidate`, `submit_run_artifact`, and
 `request_human_review`. Context retrieval persists immutable run evidence.
 
+Hermes follow-up drafts can be approved with labeled `sandbox_demo_fixture` screening
+when the backend verifies a synthetic case and an enabled WhatsApp self-chat binding or
+dedicated fixed-recipient Gmail demo. WhatsApp uses the operator **Send WhatsApp test**
+action. Email demos select `runtime_mode=hermes` at admission and are delivered by the worker
+after the run completes. Recipient bindings are revalidated at dispatch together with
+contact policy, evidence, signed content and approval expiry. Other Hermes drafts remain
+blocked while live screening is unavailable. The demo classifier has no live-quality claim.
+
 Provision `MCP_BEARER_TOKEN` as a random backend-only opaque credential and
 `MCP_TOKEN_EXPIRES_AT` as a timezone-aware UTC ISO timestamp. Missing or expired
 credentials fail closed. The configured registry binds that token to issuer

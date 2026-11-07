@@ -202,6 +202,11 @@ def validate_final(connection, run, result):
         ).fetchone()
         if not message:
             raise DomainError("result_invalid", "Final candidate reference is invalid")
+        approval = connection.execute(
+            "SELECT message_id FROM message_approvals WHERE message_id=%s", (message["id"],)
+        ).fetchone()
+        if message["status"] == "draft" and approval:
+            return "completed", "draft_created", []
         return "blocked", "draft_created", ["guardrail_unavailable"]
     return (
         "completed",

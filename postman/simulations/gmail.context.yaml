@@ -58,6 +58,62 @@ assumptions:
       app/integrations/gmail/client.py;
       postman/simulations/gmail.sim.yaml
     updated_at: "2026-11-07"
+  - id: collection-demo-reservations
+    status: supported
+    claim: In the four local collection-demo scenarios, retrying one admitted demo did not issue another Gmail send, while a new intentional demo could send a second email.
+    reason: The worker commits a delivery reservation before provider I/O and preserves it across ambiguous outcomes. Admission retries retain the original synthetic account and run.
+    verification: >-
+      On 2026-11-07, eight HTTP tests passed across the existing connection sandbox
+      and the new collection demo. The new tests exercised the real REST admission,
+      PostgreSQL worker, approval gate, OAuth client and Gmail client against the
+      loopback Postman stand-in. Success, permission denial, server error and
+      acceptance before timeout each produced one refresh and one send despite
+      repeated GETs, worker cycles and an exact POST retry. A distinct successful
+      demo created a different synthetic borrower and a second provider message.
+      NDJSON request events and the control counters confirmed the HTTP calls.
+      This establishes behavior against the local stand-in for these scenarios.
+    source: >-
+      tests/integration/test_gmail_collection_simulation.py;
+      app/modules/email_demo/delivery.py;
+      app/modules/conversations/dispatch.py;
+      postman/mocks/gmail/default.js
+    updated_at: "2026-11-07"
+  - id: live-collection-demo-acceptance
+    status: supported
+    claim: Real Gmail accepted one approved synthetic collection email triggered from the local Integrations screen.
+    reason: The visible demo reached submitted with a provider message ID, and PostgreSQL retained exactly one receipt for its completed draft run.
+    verification: >-
+      On 2026-11-07, the operator's existing Gmail OAuth configuration passed a
+      live access check. One browser click on Run email collection demo created
+      a synthetic borrower and a simulated follow-up run, then sent the approved
+      message through the normal dispatch gate. Gmail returned a message ID and
+      the UI displayed submitted. Refreshing the page retained the same demo
+      and provider ID. Recipient inbox arrival was not inspected.
+    source: >-
+      app/integrations/gmail/client.py;
+      app/modules/email_demo/;
+      ../Hackathon-Frontend/src/features/integrations/components/gmail-collection-demo.tsx
+    updated_at: "2026-11-07"
+  - id: hermes-sandbox-delivery-reservations
+    status: supported
+    claim: In four local Hermes-draft scenarios, delivery retries issued one OAuth request and one Gmail send attempt per admitted demo.
+    reason: The same backend approval and durable reservation path handles Hermes sandbox candidates and simulated candidates.
+    verification: >-
+      On 2026-11-07, submitted synthetic Hermes candidates and QA artifacts through
+      assigned domain services in disposable PostgreSQL databases, then ran the
+      canonical delivery worker with real OAuth and Gmail HTTP adapters against
+      the local Postman stand-in. Success, permission denial, server error and
+      acceptance before a send timeout preserved one refresh and one send request
+      across three admission/delivery retries. Control counters and NDJSON request
+      events confirmed those calls. OAuth had an independent test timeout to
+      isolate the modeled send timeout. Live Hermes generation, MCP connectivity
+      and real Gmail inbox delivery were not exercised by these scenarios.
+    source: >-
+      tests/integration/test_hermes_sandbox.py;
+      app/modules/compliance/sandbox.py;
+      app/modules/email_demo/delivery.py;
+      postman/mocks/gmail/default.js
+    updated_at: "2026-11-07"
 fingerprints:
   - id: local-gmail-2026-11-07
     date: "2026-11-07"

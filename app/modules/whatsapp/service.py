@@ -29,6 +29,18 @@ def configured(settings: Settings) -> bool:
     )
 
 
+def matches_test_recipient(
+    connection: Connection[dict[str, Any]], settings: Settings, account_id: str, recipient_id: str
+) -> bool:
+    binding = connection_for(connection, account_id)
+    return bool(
+        configured(settings)
+        and binding
+        and binding["session"] == settings.waha_session
+        and recipient_id == "whatsapp:" + binding["chat_id"]
+    )
+
+
 def require_operator(caller: Caller, account_id: str | None = None) -> None:
     if caller.actor_kind != "operator" or caller.principal_id != "local-operator":
         raise DomainError("dispatch_forbidden", "Local operator permission is required", 403)

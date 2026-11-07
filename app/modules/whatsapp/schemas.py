@@ -3,6 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from app.modules.conversations.schemas import Message
 from app.modules.runs.schemas import WriteModel
 
 
@@ -22,3 +23,16 @@ class ConnectionStatus(BaseModel):
 
 class WebhookResult(BaseModel):
     status: Literal["processed", "ignored", "duplicate"]
+
+
+class OutboundMessageItem(BaseModel):
+    borrower_name: str
+    loan_reference: str
+    message: Message
+
+
+class OutboundMessagePage(BaseModel):
+    items: list[OutboundMessageItem]
+    total: int
+    limit: int
+    offset: int

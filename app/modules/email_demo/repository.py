@@ -9,7 +9,8 @@ from psycopg.types.json import Jsonb
 from app.shared.errors import DomainError
 
 SELECT_DEMO = (
-    "SELECT d.*,r.status AS run_status,r.reason_codes AS run_reasons,r.outcome "
+    "SELECT d.*,r.status AS run_status,r.reason_codes AS run_reasons,r.outcome,"
+    "r.requested_runtime_mode AS runtime_mode "
     "FROM collection_email_demos d JOIN collection_runs r ON r.id=d.run_id "
 )
 

@@ -14,6 +14,7 @@ from app.modules.collection.router import router as collection_router
 from app.modules.dashboard.service import summarize
 from app.modules.email_demo.router import router as email_demo_router
 from app.modules.manager.chat_router import router as manager_chat_router
+from app.modules.runs.router import router as runs_router
 from app.modules.whatsapp.router import router as whatsapp_router
 from app.schemas import Account, AccountPage, CollectionStatus, Dashboard, Health
 from app.shared.errors import DomainError
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
 
     app.include_router(collection_router)
     app.include_router(manager_chat_router)
+    app.include_router(runs_router)
     app.include_router(whatsapp_router)
     app.include_router(email_demo_router)
 

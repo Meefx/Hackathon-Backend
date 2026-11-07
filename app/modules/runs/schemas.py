@@ -128,3 +128,29 @@ class RunEventPage(BaseModel):
     items: list[RunEvent]
     next_sequence: int
     has_more: bool
+
+
+class RuntimeActivityEvent(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sequence: int = Field(ge=0)
+    type: Literal[
+        "subagent.start", "subagent.complete", "tool.started", "tool.completed",
+        "run.started", "run.completed", "run.failed", "run.cancelled",
+    ]
+    agent_id: str = Field(min_length=1, max_length=200)
+    parent_agent_id: str | None = Field(default=None, max_length=200)
+    tool_name: str | None = Field(default=None, max_length=200)
+    tool_call_id: str | None = Field(default=None, max_length=200)
+    status: Literal["running", "completed", "failed", "cancelled"] | None = None
+    created_at: datetime | None = None
+
+
+class RunActivityPage(BaseModel):
+    source: Literal["hermes", "simulated", "backend"]
+    status: Literal["available", "unavailable", "not_started"]
+    events: list[RuntimeActivityEvent] = Field(default_factory=list)
+    next_sequence: int = Field(ge=-1)
+    has_more: bool = False
+    truncated: bool = False
+    reason_code: str | None = None

@@ -29,6 +29,24 @@ def configured(settings: Settings) -> bool:
     return settings.demo_fixture_enabled and sandbox_configured(settings)
 
 
+def matches_test_recipient(
+    connection: Connection[dict[str, Any]],
+    settings: Settings,
+    run: dict[str, Any],
+    recipient_id: str,
+) -> bool:
+    demo = repository.for_run(connection, run["id"])
+    return bool(
+        configured(settings)
+        and demo
+        and demo["account_id"] == run["account_id"]
+        and demo["caller_id"] == run["caller_id"]
+        and demo["sender_email"] == settings.gmail_sender_email
+        and demo["recipient_email"] == settings.gmail_test_recipient
+        and recipient_id == "email:" + demo["recipient_email"]
+    )
+
+
 def masked_recipient(recipient: str) -> str:
     local, domain = recipient.rsplit("@", 1)
     return local[:1] + "***@" + domain
@@ -92,9 +110,12 @@ def start_demo(
             (key, caller.principal_id),
         ).fetchone()
         if previous:
-            return snapshot(
-                repository.get_demo(connection, previous["id"], caller.principal_id), now
-            )
+            existing = repository.get_demo(connection, previous["id"], caller.principal_id)
+            if existing["runtime_mode"] != request.runtime_mode:
+                raise DomainError(
+                    "idempotency_conflict", "Request key has another runtime mode", 409
+                )
+            return snapshot(existing, now)
         if not configured(settings):
             raise DomainError(
                 "gmail_not_configured", "Configure and authorize the Gmail demo first", 503
@@ -131,7 +152,7 @@ def start_demo(
             StartRunRequest(
                 instruction="Siapkan pengingat tagihan sintetis yang sopan untuk demo email. "
                 "Gunakan fakta akun dan knowledge approved yang tersedia.",
-                runtime_mode="simulated",
+                runtime_mode=request.runtime_mode,
                 idempotency_key=request.idempotency_key,
             ),
             caller,
@@ -158,11 +179,7 @@ def start_demo(
 
 def is_demo_run(connection: Connection[dict[str, Any]], run: dict[str, Any]) -> bool:
     demo = repository.for_run(connection, run["id"])
-    if demo and (
-        demo["account_id"] != run["account_id"]
-        or demo["caller_id"] != run["caller_id"]
-        or run["requested_runtime_mode"] != "simulated"
-    ):
+    if demo and (demo["account_id"] != run["account_id"] or demo["caller_id"] != run["caller_id"]):
         raise DomainError("email_demo_forbidden", "Email demo run binding is invalid", 403)
     return demo is not None
 

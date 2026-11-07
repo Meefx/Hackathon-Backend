@@ -16,6 +16,7 @@ from app.integrations.agents.contracts import (
     RuntimeStatus,
     RuntimeSubmission,
 )
+from app.integrations.hermes.activity import ActivityReplay, read_activity
 
 REQUIRED_CAPABILITIES = ("run_submission", "run_status", "run_stop")
 MAX_RESPONSE_BYTES = 1_000_000
@@ -215,6 +216,14 @@ class HermesClient:
             reason_code=reason,
             runtime=runtime,
             usage=usage,
+        )
+
+    def get_activity(
+        self, external_run_id: str, *, after_sequence: int = -1, limit: int = 100
+    ) -> ActivityReplay:
+        return read_activity(
+            self.base_url, self.api_key, external_run_id, after_sequence=after_sequence,
+            limit=limit, transport=self.transport,
         )
 
     def get_status(self, external_run_id: str) -> RuntimeStatus:

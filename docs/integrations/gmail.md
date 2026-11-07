@@ -156,12 +156,14 @@ account consent.
   exact retries. The default full suite skips these opt-in scenarios.
 - Frontend production build, TypeScript checks and both Gmail browser tests
   passed. The earlier full fixture browser run passed 44 tests.
-- The latest full backend run reported 638 passed and 4 skipped. It emitted
-  the existing Starlette TestClient deprecation warning.
+- The full backend set was checked in three disjoint groups. After compatibility
+  fixes and focused regression reruns, coverage is 894 passed and 8 opt-in HTTP
+  simulation skips. The existing Starlette TestClient deprecation warning remains.
 - Live evidence covers Desktop OAuth authorization, refresh-token exchange and
   the running local API reporting the Gmail sandbox as configured. Refresh-token
-  storage has private mode-600 permissions. Email delivery evidence remains the
-  synthetic HTTP simulation and its controlled failure scenarios.
+  storage has private mode-600 permissions. A button-triggered synthetic collection
+  demo was accepted by the live Gmail API. Provider acceptance and the persisted
+  receipt are recorded. Recipient inbox arrival requires mailbox confirmation.
 
 ## Collection demo button
 

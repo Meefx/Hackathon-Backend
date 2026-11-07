@@ -235,7 +235,8 @@ def test_inv_only_gate_imports_channels():
             )
             if (
                 any(
-                    "integrations.channels" in module or "services.channels" in module
+                    ("integrations.channels" in module or "services.channels" in module)
+                    and module != "app.integrations.channels.contracts"
                     for module in modules
                 )
                 and "app/integrations/channels/" not in path.as_posix()

@@ -91,7 +91,11 @@ def binding_for(message, case, decision, knowledge_binding, expires_at):
     if expires_at.tzinfo is None or expires_at.utcoffset() is None:
         raise ValueError("Approval expiry requires a timezone")
     return {
-        **({"channel": message["channel"]} if message["channel"] in {"whatsapp", "email"} else {}),
+        **(
+            {"channel": message["channel"]}
+            if message.get("channel") in {"whatsapp", "email"}
+            else {}
+        ),
         "message_id": message["id"],
         "message_version": message["version"],
         "content_hash": digest(message["text"]),
@@ -115,14 +119,17 @@ def sign_binding(binding, secret):
 
 
 def issue_approval(connection, message, decision, knowledge_binding, settings, now, mode):
-    if not decision["allowed"] or mode != "simulated":
+    from app.modules.compliance.sandbox import hermes_sandbox
+
+    sandbox = mode == "hermes" and hermes_sandbox(connection, settings, message)
+    if not decision["allowed"] or (mode != "simulated" and not sandbox):
         return False
     case = lock_case(connection, message["account_id"])
     expiry = now + timedelta(seconds=min(settings.approval_ttl_seconds, 120))
     binding = binding_for(message, case, decision, knowledge_binding, expiry)
     guardrail = {
         "decision": "allow",
-        "classifier_mode": "demo_fixture",
+        "classifier_mode": "sandbox_demo_fixture" if sandbox else "demo_fixture",
         "policy_version": decision["policy_version"],
         "evaluated_at": now.isoformat(),
     }

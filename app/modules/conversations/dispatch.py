@@ -17,6 +17,7 @@ from app.integrations.knowledge.gateway import get_gateway
 from app.modules.audit.service import append_event
 from app.modules.cases.repository import lock_case
 from app.modules.compliance.repository import lock_contact_authority
+from app.modules.compliance.sandbox import hermes_sandbox
 from app.modules.compliance.screening import screen_candidate
 from app.modules.compliance.service import binding_for, evaluate_contact_policy, sign_binding
 from app.modules.conversations.compatibility import authorize_legacy_binding, bound_evidence
@@ -275,7 +276,10 @@ def dispatch_message(
         ):
             reasons.append("approval_invalid")
         screening = screen_candidate(
-            message["text"], mode="simulated", fixture_enabled=settings.demo_fixture_enabled
+            message["text"],
+            mode=origin["requested_runtime_mode"] if message["run_id"] else "simulated",
+            fixture_enabled=settings.demo_fixture_enabled,
+            sandbox=hermes_sandbox(connection, settings, message),
         )
         if screening["result"] != "ALLOW":
             reasons.extend(code.lower() for code in screening["reason_codes"])

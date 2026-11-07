@@ -4,11 +4,12 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from app.modules.runs.schemas import WriteModel
+from app.modules.runs.schemas import RuntimeMode, WriteModel
 
 
 class EmailDemoRequest(WriteModel):
     idempotency_key: UUID
+    runtime_mode: RuntimeMode = "simulated"
 
 
 class EmailDemo(BaseModel):
@@ -22,7 +23,7 @@ class EmailDemo(BaseModel):
     provider_message_id: str | None
     created_at: datetime
     updated_at: datetime
-    runtime_mode: Literal["simulated"] = "simulated"
+    runtime_mode: RuntimeMode = "simulated"
 
 
 class EmailDemoStatus(BaseModel):

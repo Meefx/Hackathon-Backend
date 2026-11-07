@@ -521,7 +521,7 @@ def test_dispatch_rechecks_clock_after_blocking_state_locks(monkeypatch):
     monkeypatch.setattr(
         gate,
         "ChannelGateway",
-        lambda: SimpleNamespace(
+        lambda settings=None: SimpleNamespace(
             resolve=lambda channel: SimpleNamespace(
                 dispatch=lambda intent: deliveries.append(intent)
             )

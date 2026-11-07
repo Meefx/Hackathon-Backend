@@ -14,6 +14,13 @@ docker compose exec backend uv run --no-sync python -m app.seed
 
 Compose starts PostgreSQL 17 with pgvector, waits for database health, runs the versioned Alembic migration in the one-shot `migrate` service, and starts the API. Seeding is a separate, explicit operation. Rerunning it preserves existing rows and their first-seeded due dates, including concurrent runs.
 
+The seed command provisions 1,000 fictional borrowers by default, including the original eight
+demo accounts. Additional borrowers have Indonesian names, varied integer IDR balances, due dates
+across all four aging buckets, and six collection officers. Use `python -m app.seed --count 200`
+for a smaller portfolio or `--count 1000` to expand an existing one. The count is the target number
+of seeded demo accounts. Other existing accounts are retained. Python callers of `seed()` keep
+the original eight-account fixture unless they pass `count` explicitly.
+
 The API listens at [http://localhost:8000](http://localhost:8000). Open [Swagger UI](http://localhost:8000/docs) or [OpenAPI](http://localhost:8000/openapi.json). PostgreSQL and backend published ports bind to loopback. `POSTGRES_PORT` and `BACKEND_PORT` in `.env` can change the host ports. The named `postgres_data` volume persists portfolio data across container recreation.
 
 For a local WhatsApp connection sandbox, run `./scripts/waha-local.sh` and follow
@@ -23,6 +30,15 @@ port 3002 with separate credentials and persistent sessions. Linked operator
 follow-up drafts use the approved dispatch endpoint and signed inbound webhooks.
 Scheduled runs use the simulated channel. The runbook covers migration, worker
 startup, frontend controls, and uncertain-delivery handling.
+
+The portfolio dashboard reads `GET /api/v1/whatsapp/messages?limit=10&offset=0`
+for outbound WhatsApp dispatch history, newest first by message creation time
+and ID. The response uses `{items,total,limit,offset}`. Each item contains
+`borrower_name`, `loan_reference`, and the existing `message` DTO with the
+persisted delivery status. Reads support limits 1–100 and nonnegative offsets.
+Unsent drafts, blocked messages, inbound messages, and other channels are excluded.
+Failed and unconfirmed attempts retain their explicit status. This local-operator
+read uses PostgreSQL history and remains available after a WhatsApp disconnect.
 
 ```sh
 docker compose ps -a
@@ -143,7 +159,7 @@ Remote operator authentication and payment integrations remain future work. Use 
 The v2 collection API adds manager sessions, durable account runs, immutable knowledge snapshots,
 message drafts, HMAC-bound compliance approvals, simulated dispatch, manual review, and chained
 account audit. The existing portfolio contract remains unchanged. Run Alembic before restarting
-API/worker processes. `python -m app.seed` explicitly provisions the eight fictional accounts,
+API/worker processes. `python -m app.seed` explicitly provisions 1,000 fictional accounts,
 synthetic verified recipients, and a `demo-policy-v1` fixture covering dates through 2027-12-31.
 Unseeded/imported accounts remain ineligible until a verified recipient and eligibility are set.
 
@@ -171,16 +187,33 @@ operator hold; `request_resume` returns the review result and the independently 
 
 The task types are `follow_up`, `collector_brief`, and `improvement_review`. Specify `runtime_mode`
 explicitly as `simulated` or `hermes`; there is no automatic fallback. The simulator uses labeled
-`demo_fixture` knowledge and QA. Hermes candidates are quarantined when the live policy classifier is
-unavailable; an agent QA report never grants dispatch approval. Improvement proposals remain advisory.
-WhatsApp, email, and phone adapters return `channel_unavailable` and create no delivery receipts.
-The only dispatch implementation is `simulated_chat`.
+`demo_fixture` knowledge and QA. Hermes follow-up candidates may use the labeled demo classifier
+only for synthetic cases bound to the enabled WhatsApp self-chat sandbox or the dedicated fixed-recipient
+Gmail demo. Other Hermes candidates remain blocked while the live classifier is unavailable.
+Backend screening and signed approvals authorize delivery. Improvement proposals remain advisory.
+The default channel is `simulated_chat`. The opt-in WhatsApp sandbox and dedicated Gmail
+collection demo use the canonical dispatch gate with durable provider reservations.
+Phone collection remains unavailable.
 
 Gmail API connectivity is available as a separate team sandbox with Desktop OAuth,
 private refresh-token storage, and a fixed synthetic test email with a durable
 request-ID journal. The Integrations registry reports its configuration and
 unprobed health separately. Follow the [Gmail setup guide](docs/integrations/gmail.md)
 to authorize a team account and run an explicit connection test.
+
+The Integrations screen also provides a repeatable Gmail collection demo. Each intentional
+click creates a fresh fictional account and a follow-up run using the selected `simulated` or
+`hermes` runtime, retrieves configured approved knowledge, and automatically sends the approved draft to the fixed
+team test recipient. Apply migration `0010_gmail_collection_demo` and run the worker.
+Exact UUID retries reuse the same account/run/send. Reserved sends are never replayed
+after a timeout or crash, and these dedicated accounts stay outside the daily scheduler.
+The POST request accepts optional `runtime_mode` (`simulated` by default or `hermes`), and
+responses report the persisted run mode. Reusing a request UUID with a different mode returns 409.
+The browser persists the mode with the request UUID for recovery after reload. Hermes requires
+the configured runtime and MCP listener. For WhatsApp, link a synthetic account to self-chat,
+run a Hermes follow-up, and use **Send WhatsApp test** on the approved draft. All outbound
+messages retain `[DEMO SINTETIS]`, contact policy, current evidence, approval expiry and
+durable duplicate suppression. Sandbox screening remains a demo baseline.
 
 New endpoints and request/response schemas are visible in `/docs` and `/openapi.json`. Registry reads
 use `/api/v1/agents` and `/api/v1/integrations`; histories use bounded `{items,total,limit,offset}`
@@ -378,6 +411,28 @@ After updating the backend tool catalog, update the profile's tool allowlist and
 reload its MCP connection. The setup and twelve tool names are documented in
 `docs/integrations/hermes-mcp.md`. A healthy Runs API alone does not verify the
 profile's current tool catalog.
+
+### Run agent activity
+
+`GET /api/v1/runs/{run_id}/activity?after_sequence=-1&limit=100` exposes a bounded,
+read-only page of native Hermes lifecycle and tool events. Its cursor starts at
+`-1` to include Hermes sequence zero. Continue from `next_sequence` while
+`has_more` is true. The response includes `source`, availability `status`,
+`truncated`, and a safe `reason_code`. Existing run and evidence endpoints keep
+their contracts.
+
+The adapter reads the configured profile's `/v1/runs/{id}/events` SSE replay with
+short network bounds. It exposes event sequence, native agent/parent and tool-call
+IDs, tool name, timestamp and outcome. Runtime prompts, reasoning, arguments,
+previews and outputs are excluded. Hermes supplies child IDs in delegation events;
+specialist profile names and child tool progress are absent from the native stream.
+An expired or unsupported stream produces explicit unavailable telemetry.
+
+Activity pages depend on Hermes event retention and are not stored in PostgreSQL.
+The upstream replay retains up to 1,000 events and expires inactive buffers after
+five minutes. The portal marks replay gaps and unconfirmed child states. Simulated
+runs use their existing persisted, explicitly labeled simulator steps. This read
+path requires no migration or additional provider credential.
 
 ### Public regulatory sources
 

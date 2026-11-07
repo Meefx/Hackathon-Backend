@@ -7,6 +7,29 @@ from psycopg import Connection
 from psycopg.types.json import Jsonb
 
 
+def outbound_messages(
+    connection: Connection[dict[str, Any]], limit: int, offset: int
+) -> dict[str, Any]:
+    # Count and page share one snapshot, including when the requested page is empty.
+    row = connection.execute(
+        "WITH outbound AS ("
+        "SELECT m.*,a.borrower_name,a.loan_reference,"
+        "CASE WHEN m.status='draft' THEN COALESCE(d.status,m.status) "
+        "ELSE m.status END AS delivery_status "
+        "FROM collection_messages m JOIN accounts a ON a.id=m.account_id "
+        "LEFT JOIN collection_whatsapp_deliveries d ON d.message_id=m.id "
+        "WHERE m.channel='whatsapp' AND m.direction='outbound'),"
+        "visible AS (SELECT * FROM outbound WHERE delivery_status IN "
+        "('submitted','sent','delivered','read','failed','delivery_unknown')) "
+        "SELECT (SELECT count(*) FROM visible) AS total,"
+        "(SELECT COALESCE(jsonb_agg(page),'[]'::jsonb) FROM "
+        "(SELECT * FROM visible ORDER BY created_at DESC,id DESC LIMIT %s OFFSET %s) page) AS items",
+        (limit, offset),
+    ).fetchone()
+    assert row is not None
+    return row
+
+
 def connection_for(
     connection: Connection[dict[str, Any]], account_id: str
 ) -> dict[str, Any] | None:

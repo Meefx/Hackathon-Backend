@@ -1,6 +1,15 @@
 """Persistence for contact authority, borrower serialization and preserved history."""
 
 
+def sandbox_context(connection, run_id: str | None, account_id: str) -> dict | None:
+    return connection.execute(
+        "SELECT r.*,c.recipient_id,c.recipient_verified,a.is_synthetic "
+        "FROM collection_runs r JOIN collection_cases c ON c.account_id=r.account_id "
+        "JOIN collection_authorities a ON a.account_id=r.account_id "
+        "WHERE r.id=%s AND r.account_id=%s", (run_id, account_id)
+    ).fetchone()
+
+
 def authority(connection, account_id: str, *, lock: bool = False) -> dict | None:
     return connection.execute(
         "SELECT * FROM collection_authorities WHERE account_id=%s"

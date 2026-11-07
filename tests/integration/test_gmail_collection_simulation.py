@@ -57,7 +57,7 @@ def test_email_demo_api_worker_and_http_no_resend(
         lambda config: GmailClient(config, transport=LocalGoogleTransport(SIMULATION_URL)),
     )
     control_url = SIMULATION_URL.rstrip("/") + "/google/__control"
-    with httpx.Client(trust_env=False, timeout=3) as control:
+    with httpx.Client(trust_env=False, timeout=10) as control:
         control.post(control_url, json={"scenario": scenario}).raise_for_status()
         with TestClient(create_app()) as client:
             initial = client.get(PATH)

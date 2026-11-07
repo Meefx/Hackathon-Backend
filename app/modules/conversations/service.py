@@ -8,6 +8,7 @@ from app.integrations.knowledge.gateway import get_gateway
 from app.modules.audit.service import append_event
 from app.modules.cases.repository import lock_case
 from app.modules.compliance.rendering import render_message
+from app.modules.compliance.sandbox import hermes_sandbox
 from app.modules.compliance.screening import (
     attest_candidate,
     screen_candidate,
@@ -107,8 +108,20 @@ def submit_draft(settings, candidate, caller, now):
             text = "[DEMO SINTETIS] " + text
         decision = evaluate_contact_policy(connection, candidate.account_id, now)
         mode = run["requested_runtime_mode"]
-        screening = screen_candidate(text, mode=mode, fixture_enabled=settings.demo_fixture_enabled)
-        approved = decision["allowed"] and screening["result"] == "ALLOW" and mode == "simulated"
+        sandbox = hermes_sandbox(
+            connection,
+            settings,
+            {
+                "run_id": run["id"],
+                "account_id": candidate.account_id,
+                "channel": channel,
+                "text": text,
+            },
+        )
+        screening = screen_candidate(
+            text, mode=mode, fixture_enabled=settings.demo_fixture_enabled, sandbox=sandbox
+        )
+        approved = decision["allowed"] and screening["result"] == "ALLOW"
         message = {
             "id": str(uuid4()),
             "account_id": candidate.account_id,

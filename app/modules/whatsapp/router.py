@@ -1,15 +1,30 @@
-from fastapi import APIRouter, Request
+from typing import Annotated
+
+from fastapi import APIRouter, Query, Request
 from starlette.concurrency import run_in_threadpool
 
 from app.config import get_settings
 from app.modules.conversations.schemas import DispatchRequest, DispatchResult
-from app.modules.whatsapp import delivery, service, webhooks
-from app.modules.whatsapp.schemas import ConnectionStatus, LinkRequest, WebhookResult
+from app.modules.whatsapp import delivery, feed, service, webhooks
+from app.modules.whatsapp.schemas import (
+    ConnectionStatus,
+    LinkRequest,
+    OutboundMessagePage,
+    WebhookResult,
+)
 from app.shared.caller import Caller
 from app.shared.clock import utcnow
 from app.shared.errors import DomainError
 
 router = APIRouter(prefix="/api/v1", tags=["WhatsApp"])
+
+
+@router.get("/whatsapp/messages", response_model=OutboundMessagePage)
+def outbound_messages(
+    limit: Annotated[int, Query(ge=1, le=100)] = 10,
+    offset: Annotated[int, Query(ge=0)] = 0,
+):
+    return feed.list_outbound(get_settings(), Caller(), limit, offset)
 
 
 @router.get("/accounts/{account_id}/whatsapp", response_model=ConnectionStatus)
