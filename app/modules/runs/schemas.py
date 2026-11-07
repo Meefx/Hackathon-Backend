@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.modules.manager.schemas import TaskProposal
+
 TaskType = Literal["follow_up", "collector_brief", "improvement_review"]
 RuntimeMode = Literal["simulated", "hermes"]
 RunStatus = Literal[
@@ -22,12 +24,15 @@ class StartRunRequest(WriteModel):
     runtime_mode: RuntimeMode = "simulated"
     idempotency_key: UUID
     manager_session_id: UUID | None = None
+    review_id: UUID | None = None
     demo_scenario: Scenario | None = None
 
     @model_validator(mode="after")
     def scenario_is_simulated(self):
         if self.demo_scenario and self.runtime_mode != "simulated":
             raise ValueError("demo_scenario requires simulated runtime")
+        if self.review_id and (self.task_type != "collector_brief" or self.demo_scenario):
+            raise ValueError("review_id requires collector_brief without a demo_scenario")
         return self
 
 
@@ -62,18 +67,25 @@ class RunStep(BaseModel):
 class RunArtifact(BaseModel):
     id: str
     run_id: str
-    kind: Literal["draft", "qa_report", "collector_brief", "improvement_proposal"]
+    kind: Literal[
+        "draft", "qa_report", "collector_brief", "improvement_proposal",
+        "manager_response", "manager_task_proposal",
+    ]
     text: str
     message_id: str | None = None
     citation_ids: list[str] = []
     review_state: Literal["pending", "approved", "rejected"] | None = None
     created_at: datetime
+    proposal: TaskProposal | None = None
 
 
 class RunSnapshot(BaseModel):
     id: str
-    account_id: str
+    account_id: str | None
     manager_session_id: str
+    origin: Literal["operator", "scheduled"] = "operator"
+    scope: Literal["account", "portfolio"] = "account"
+    context_account_id: str | None = None
     status: RunStatus
     outcome: str | None = None
     requested_runtime_mode: RuntimeMode

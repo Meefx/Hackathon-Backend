@@ -1,3 +1,4 @@
+from app.integrations.gmail.client import sandbox_configured
 from app.shared.clock import utcnow
 
 ROLES = ("manager", "collection", "knowledge", "qa", "improvement", "copilot")
@@ -94,10 +95,24 @@ def integrations(settings):
     ]
     for name in ("whatsapp", "email", "phone"):
         items.append(row(name, "channel", False, False, "unavailable", [], "channel_unavailable"))
+    gmail = sandbox_configured(settings)
+    items.append(
+        row(
+            "gmail",
+            "channel",
+            True,
+            gmail,
+            "sandbox" if gmail else "unavailable",
+            ["oauth2", "sandbox_send_test"],
+            None if gmail else "gmail_not_configured",
+        )
+    )
     # Configured means config exists, not an unperformed live health check.
     for item in items:
         if (
-            item["id"] in ("hermes", "mcp") or item["id"] == "knowledge" and knowledge_module
+            item["id"] in ("hermes", "mcp", "gmail")
+            or item["id"] == "knowledge"
+            and knowledge_module
         ) and item["configured"]:
             item["health"] = "unknown"
     return {"items": items}

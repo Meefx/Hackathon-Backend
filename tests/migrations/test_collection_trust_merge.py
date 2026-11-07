@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from psycopg.types.json import Jsonb
 
 from app.config import get_settings
-from app.db.connection import check_ready, connect
+from app.db.connection import REQUIRED_REVISION, check_ready, connect
 from app.main import create_app
 from app.modules.knowledge import service as knowledge
 from app.modules.knowledge.authorization import Actor
@@ -138,9 +138,7 @@ def test_either_branch_upgrades_without_changing_portfolio(empty_database_url, p
 
 
 def test_combined_migrations_have_one_integration_head():
-    assert ScriptDirectory.from_config(migration_config()).get_heads() == [
-        "0005_knowledge_collection"
-    ]
+    assert ScriptDirectory.from_config(migration_config()).get_heads() == [REQUIRED_REVISION]
 
 
 def test_populated_integration_downgrade_preserves_authority(database_url):

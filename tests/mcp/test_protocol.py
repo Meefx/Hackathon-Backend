@@ -91,13 +91,13 @@ class FixtureDomain:
 
 
 @contextmanager
-def listener(service=None):
+def listener(service=None, *, manager_service=None):
     settings = Settings(
         _env_file=None,
         mcp_bearer_token=TOKEN,
         mcp_token_expires_at=datetime.now(UTC) + timedelta(minutes=10),
     )
-    app = create_app(settings, service or FixtureDomain())
+    app = create_app(settings, service or FixtureDomain(), manager_service=manager_service)
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
     sock.listen(16)
@@ -136,6 +136,11 @@ async def test_initialize_discover_and_structured_call_over_real_http():
                         "submit_draft_candidate",
                         "submit_run_artifact",
                         "request_human_review",
+                        "get_portfolio_overview",
+                        "search_portfolio_accounts",
+                        "inspect_portfolio_account",
+                        "submit_manager_response",
+                        "propose_account_task",
                     }
                     account_tool = next(t for t in tools if t.name == "get_account")
                     assert (

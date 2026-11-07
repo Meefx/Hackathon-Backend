@@ -52,15 +52,28 @@ mcp_servers:
         - submit_draft_candidate
         - submit_run_artifact
         - request_human_review
+        - get_portfolio_overview
+        - search_portfolio_accounts
+        - inspect_portfolio_account
+        - submit_manager_response
+        - propose_account_task
 ```
 
 Set `COLLECTFLOW_MCP_URL` and the same MCP token in the **remote Hermes profile's
 environment**, not in prompts or committed configuration. Hermes documents
 `${ENV_VAR}` substitution for MCP URL and headers. Reload/restart that profile's
 MCP connection using its supported operator controls. Use the console connection
-test to discover all seven tools, then run one bounded synthetic task and verify
+test to discover all twelve tools, then run one bounded synthetic task and verify
 its native MCP calls and persisted artifact. A successful local MCP SDK test or
 Hermes capability probe alone does not establish the complete link.
+
+Portfolio conversations use a durable `manager_chat` assignment with a null account
+and an optional `context_account_id`. The five portfolio tools validate that run's
+principal, execution attempt, fence and active lease. Account collection tools retain
+their account assignment boundary. `propose_account_task` saves an advisory card.
+The portal operator executes a card through the existing account run API using the
+artifact UUID as its replay key. A saved `manager_response` must match the runtime's
+final summary before the worker accepts the reply.
 
 The deployed API's `/v1/toolsets` endpoint lists configurable built-in/plugin
 groups and deliberately excludes default MCP servers. An absent CollectFlow

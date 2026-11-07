@@ -26,7 +26,7 @@ from app.modules.knowledge_context.service import validate_citations
 from app.modules.runs.repository import require_run
 from app.shared.caller import Caller
 from app.shared.errors import DomainError
-from app.shared.idempotency import record, replay
+from app.shared.idempotency import digest, record, replay
 from app.trust.errors import TrustError
 from app.trust.security import require
 
@@ -62,10 +62,24 @@ def dispatch_message(
     caller: Caller,
     clock: datetime | Callable[[], datetime] | Clock,
 ) -> dict[str, Any]:
-    # Capabilities are checked before discovery and replay. Model workers may
-    # submit candidates, but operator-controlled dispatch is a separate action.
-    if caller.actor_kind != "operator" or caller.principal_id != "local-operator":
-        raise DomainError("dispatch_forbidden", "Operator dispatch permission required", 403)
+    # Scheduler provenance is persisted by server-owned admission, never caller input.
+    operator = caller.actor_kind == "operator" and caller.principal_id == "local-operator"
+    scheduler = (
+        caller.actor_kind == "scheduler" and caller.principal_id == "daily-collection-scheduler"
+    )
+    assignment = None
+    if scheduler:
+        assignment = connection.execute(
+            "SELECT s.id,s.facts_hash FROM collection_schedule_items s JOIN collection_runs r ON r.id=s.run_id "
+            "JOIN collection_messages m ON m.run_id=r.id WHERE m.id=%s AND r.id=%s "
+            "AND s.account_id=%s AND r.account_id=s.account_id AND m.account_id=s.account_id "
+            "AND r.caller_id='daily-collection-scheduler' AND r.requested_runtime_mode='simulated' "
+            "AND m.channel='simulated_chat'",
+            (message_id, caller.run_id, caller.account_id),
+        ).fetchone()
+        scheduler = bool(assignment)
+    if not operator and not scheduler:
+        raise DomainError("dispatch_forbidden", "Trusted dispatch permission required", 403)
     connection.execute("SELECT pg_advisory_xact_lock(71107002)")
     initial = connection.execute(
         "SELECT * FROM collection_messages WHERE id=%s", (message_id,)
@@ -145,6 +159,23 @@ def dispatch_message(
     except (DomainError, TrustError):
         reasons.append("knowledge_reference_invalid")
     reasons.extend(decision["reason_codes"])
+    if scheduler:
+        from zoneinfo import ZoneInfo
+
+        portfolio = connection.execute(
+            "SELECT outstanding_amount,due_date,borrower_name,loan_reference "
+            "FROM accounts WHERE id=%s",
+            (message["account_id"],),
+        ).fetchone()
+        if not portfolio or not assignment:
+            raise DomainError("dispatch_forbidden", "Scheduled account binding unavailable", 403)
+        if (
+            portfolio["outstanding_amount"] <= 0
+            or portfolio["due_date"] >= now.astimezone(ZoneInfo("Asia/Jakarta")).date()
+        ):
+            reasons.append("account_not_collectible")
+        if assignment["facts_hash"] != digest(portfolio):
+            reasons.append("account_facts_changed")
     if message["run_id"]:
         origin = require_run(connection, message["run_id"])
         if (

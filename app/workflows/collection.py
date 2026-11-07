@@ -7,6 +7,7 @@ from app.db.connection import connect
 from app.modules.collection.service import CollectionService
 from app.modules.conversations.schemas import DraftCandidate
 from app.modules.knowledge_context.contracts import KnowledgeQuery
+from app.modules.manager.service import discussion_context, simulated_discussion
 from app.modules.runs.repository import add_step, finish, verify_fence
 from app.modules.runs.schemas import ArtifactCandidate
 from app.shared.caller import Caller
@@ -42,6 +43,13 @@ def execute_simulated(settings, run, attempt, fence, now, snapshot):
     )
     service = CollectionService(settings, lambda: now)
     with connect(settings.database_url) as connection:
+        context = (
+            discussion_context(
+                connection, settings, run["account_id"], run["payload"]["review_id"], now
+            )
+            if run["payload"].get("review_id")
+            else None
+        )
         job = verify_fence(connection, run["id"], attempt, fence, now)
         if job["cancellation_requested_at"]:
             finish(connection, run["id"], "cancelled", None, "Cancelled before generation", now)
@@ -131,6 +139,8 @@ def execute_simulated(settings, run, attempt, fence, now, snapshot):
             else "Usulan: tinjau metrik kontak dan perjelas bantuan kesulitan bayar. Perubahan "
             "kebijakan memerlukan persetujuan manusia dan tidak diterapkan otomatis."
         )
+        if context:
+            text = simulated_discussion(context)
         service.submit_run_artifact(
             ArtifactCandidate(
                 run_id=run["id"],
@@ -165,6 +175,10 @@ def execute_simulated(settings, run, attempt, fence, now, snapshot):
 def validate_final(connection, run, result):
     if result.application_run_id != run["id"] or result.task_type != run["payload"]["task_type"]:
         raise DomainError("result_invalid", "Final result does not match run")
+    if result.task_type == "manager_chat":
+        from app.workflows.manager_chat import validate_chat_result
+
+        return validate_chat_result(connection, run, result)
     from app.modules.knowledge_context.service import validate_citations
 
     validate_citations(connection, run["id"], result.citation_ids)

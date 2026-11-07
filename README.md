@@ -16,6 +16,12 @@ Compose starts PostgreSQL 17 with pgvector, waits for database health, runs the 
 
 The API listens at [http://localhost:8000](http://localhost:8000). Open [Swagger UI](http://localhost:8000/docs) or [OpenAPI](http://localhost:8000/openapi.json). PostgreSQL and backend published ports bind to loopback. `POSTGRES_PORT` and `BACKEND_PORT` in `.env` can change the host ports. The named `postgres_data` volume persists portfolio data across container recreation.
 
+For a local WhatsApp connection sandbox, run `./scripts/waha-local.sh` and follow
+[the WAHA local runbook](docs/integrations/waha-local.md) to pair a team test phone
+and use the status, QR, and fixed synthetic test-message commands. WAHA runs on
+loopback port 3002 with separate credentials and persistent sessions. Collection
+workflows continue to use the simulated channel.
+
 ```sh
 docker compose ps -a
 docker compose logs migrate backend
@@ -165,6 +171,12 @@ unavailable; an agent QA report never grants dispatch approval. Improvement prop
 WhatsApp, email, and phone adapters return `channel_unavailable` and create no delivery receipts.
 The only dispatch implementation is `simulated_chat`.
 
+Gmail API connectivity is available as a separate team sandbox with Desktop OAuth,
+private refresh-token storage, and a fixed synthetic test email with a durable
+request-ID journal. The Integrations registry reports its configuration and
+unprobed health separately. Follow the [Gmail setup guide](docs/integrations/gmail.md)
+to authorize a team account and run an explicit connection test.
+
 New endpoints and request/response schemas are visible in `/docs` and `/openapi.json`. Registry reads
 use `/api/v1/agents` and `/api/v1/integrations`; histories use bounded `{items,total,limit,offset}`
 pages, including `/api/v1/runs/{id}/knowledge` because a run can retrieve several immutable snapshots.
@@ -291,3 +303,73 @@ budget and verifies hashes. Every dependency remains mandatory regardless of wei
 
 The global audit lock serializes trust writes. The sequential local benchmark is not
 a production load test. Browser permission was declined; no visual QA is claimed.
+
+
+## Daily collection automation
+
+The collection worker scans overdue accounts with positive outstanding balances from
+09.00 Asia/Jakarta each day. Set `SCHEDULER_ENABLED=false` to disable admission and
+automatic delivery. `SCHEDULER_START_HOUR` configures the Jakarta start hour, and
+`SCHEDULER_RUNTIME_MODE` explicitly selects `simulated` (default) or `hermes`.
+Apply the latest migration before starting the existing `app.workers.collection`
+process. Compose passes these settings to that worker.
+
+Daily admission and its run/job records commit together. A durable per-account/date
+ledger prevents duplicate runs across scheduler replicas and restarts. The manager
+coordinates knowledge retrieval, collection and QA through the existing run workflow.
+Completed scheduled simulated drafts are delivered automatically through the canonical
+backend gate. Receipt, audit, dispatch idempotency and ledger changes commit together.
+Manual runs keep their explicit dispatch action. Hermes follow-up remains blocked
+while the independent live classifier is unavailable.
+
+The scheduler rechecks eligibility, verified authority, borrower-local contact hours,
+calendar coverage, daily/weekly budgets, holds and approved knowledge. Routine calendar
+and frequency constraints appear as deferred. Operational failures appear in the
+bounded attention summary returned by `GET /api/v1/collection-automation/status`.
+Open human reviews use the existing `/api/v1/reviews` contract. Hardship, dispute
+and human-request reviews use explicit, versioned operator decisions.
+
+Authority data older than 24 hours blocks contact. Demo seed verification is recorded
+once and is not refreshed by scheduling or repeated seed execution. Multi-day demos
+require an authoritative synthetic data refresh before collection becomes eligible.
+Catch-up scans use the current Jakarta date. An interrupted external runtime requires
+reconciliation through the existing run recovery operation.
+
+The overview refreshes automation progress and open-review nudges every 30 seconds.
+Open a review to discuss its account with the manager in place. Discussion submits
+`collector_brief` with a validated `review_id` to the existing runs API, creates an
+operator-owned session, and carries current case facts, review status and minimized
+conversation context. A discussion supports advisory artifacts only. Review resolution
+and resume use the existing explicit actions and return the backend contact decision.
+Scheduled histories are read-visible with `origin=scheduled` and scheduler-authored
+turns. Follow-up operator conversations start their own sessions. The portal stores
+only discussion IDs, runtime mode and recovery keys across refresh.
+
+## Portfolio Manager chat
+
+The portal `/manager` is a persistent conversation across the synthetic portfolio.
+Account drill-down supplies an explicit `context_account_id` for the next turn.
+Advanced account tasks remain available at `/manager/tasks`.
+
+`POST /api/v1/manager/chat/runs` accepts an instruction, explicit runtime mode,
+UUID idempotency key, optional manager session and optional account context.
+It returns the existing queued-run contract. Portfolio runs have `account_id=null`,
+`scope=portfolio` and task type `manager_chat`. Existing account task inputs keep
+their three task types. Global sessions and direct session reads are under
+`/api/v1/manager/chat/sessions`. Lost acceptance uses the read-only
+`/api/v1/manager/chat/requests/{key}` endpoint. Messages, events, cancellation and
+permitted reconciliation reuse the existing manager/run endpoints.
+
+Portfolio MCP tools read summaries, search accounts, inspect cases, save a Manager
+response and propose account tasks. Each validates the active portfolio run,
+principal, attempt, fence and lease. An operator executes a proposed task through
+the existing account run API, using the saved proposal artifact UUID as the replay
+key. The worker requires the runtime final summary to match a persisted Manager
+response artifact.
+
+Simulated chat displays a labeled snapshot of current backend facts and account
+task cards. Free-form reasoning uses Hermes with its configured MCP connection.
+After updating the backend tool catalog, update the profile's tool allowlist and
+reload its MCP connection. The setup and twelve tool names are documented in
+`docs/integrations/hermes-mcp.md`. A healthy Runs API alone does not verify the
+profile's current tool catalog.

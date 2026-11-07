@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
+from typing import Literal
+from urllib.parse import urlsplit
 
 from psycopg import ProgrammingError
 from psycopg.conninfo import conninfo_to_dict
@@ -40,7 +42,7 @@ class TrustSettings:
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=(".env", ".env.waha.local"), extra="ignore")
 
     app_name: str = "CollectFlow API"
     database_url: str = "postgresql://collectflow:local-demo-password@127.0.0.1:5432/collectflow"
@@ -73,6 +75,9 @@ class Settings(BaseSettings):
     knowledge_service_factory: str = ""
     approval_hmac_secret: SecretStr = SecretStr("local-synthetic-demo-change-before-sharing")
     approval_ttl_seconds: int = 900
+    scheduler_enabled: bool = True
+    scheduler_start_hour: int = Field(default=9, ge=0, le=23)
+    scheduler_runtime_mode: Literal["simulated", "hermes"] = "simulated"
     worker_lease_seconds: int = 60
     worker_poll_seconds: float = 2
     worker_runtime_deadline_seconds: int = 300
@@ -80,11 +85,48 @@ class Settings(BaseSettings):
     hermes_api_key: SecretStr = SecretStr("")
     hermes_profile: str = ""
     hermes_timeout_seconds: float = 20
+    waha_base_url: str = ""
+    waha_api_key: SecretStr = SecretStr("")
+    waha_session: str = Field(default="default", pattern=r"^[A-Za-z0-9_-]{1,64}$")
+    waha_timeout_seconds: float = Field(default=10, ge=0.1, le=60)
+    waha_test_recipient: str = ""
+    waha_collection_enabled: bool = False
+    waha_webhook_secret: SecretStr = SecretStr("")
+    waha_webhook_url: str = "http://host.docker.internal:8000/api/v1/webhooks/waha"
+    gmail_client_id: str = ""
+    gmail_client_secret: SecretStr = SecretStr("")
+    gmail_refresh_token: SecretStr = SecretStr("")
+    gmail_token_path: str = "data/gmail/oauth.json"
+    gmail_oauth_port: int = Field(default=8765, ge=1, le=65535)
+    gmail_timeout_seconds: float = Field(default=10, ge=0.1, le=60)
+    gmail_sender_email: str = ""
+    gmail_test_recipient: str = ""
     mcp_bearer_token: SecretStr = SecretStr("")
     mcp_token_expires_at: datetime | None = None
     mcp_principal_id: str = "hermes-agent"
     mcp_allowed_hosts: list[str] = ["127.0.0.1:*", "localhost:*"]
     mcp_allowed_origins: list[str] = ["http://127.0.0.1:*", "http://localhost:*"]
+
+    @field_validator("waha_base_url")
+    @classmethod
+    def validate_waha_base_url(cls, value: str) -> str:
+        if not value:
+            return value
+        if any(character.isspace() or ord(character) < 32 for character in value):
+            raise ValueError("WAHA sandbox URL cannot contain whitespace or control characters")
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or parsed.hostname not in {"localhost", "127.0.0.1", "::1"}
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path not in {"", "/"}
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("WAHA sandbox URL must be a loopback HTTP origin")
+        _ = parsed.port  # Validate port syntax and range before opening a connection.
+        return value.rstrip("/")
 
     @field_validator("database_url")
     @classmethod

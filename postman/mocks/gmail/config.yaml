@@ -1,0 +1,12 @@
+version: 1
+name: gmail-sandbox-contract
+slug: gmail-sandbox-contract
+protocol: http
+interceptRequests: true
+origin:
+  - oauth2.googleapis.com
+  - gmail.googleapis.com
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

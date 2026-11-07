@@ -1,4 +1,7 @@
+from typing import Any
 from uuid import uuid4
+
+from psycopg import Connection
 
 from app.db.connection import connect
 from app.modules.audit.service import append_event
@@ -6,6 +9,17 @@ from app.modules.cases.repository import contact_state, lock_case
 from app.modules.compliance.service import evaluate_contact_policy
 from app.shared.errors import DomainError
 from app.shared.idempotency import record, replay
+
+
+def get_account_review(
+    connection: Connection[dict[str, Any]], account_id: str, review_id: str
+) -> dict[str, Any]:
+    review = connection.execute(
+        "SELECT * FROM collection_reviews WHERE id=%s AND account_id=%s", (review_id, account_id)
+    ).fetchone()
+    if not review:
+        raise DomainError("review_not_found", "Account review not found", 404)
+    return review
 
 
 def open_review(connection, account_id, reason, now, run_id=None, owner_id="local-operator"):

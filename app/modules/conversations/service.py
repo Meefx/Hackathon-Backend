@@ -107,6 +107,8 @@ def submit_draft(settings, candidate, caller, now):
         check_assignment(connection, caller, candidate.account_id, candidate.run_id, now)
         if run["account_id"] != candidate.account_id or run["status"] != "running":
             raise DomainError("assignment_denied", "Draft requires active assigned run", 403)
+        if run["payload"]["task_type"] != "follow_up":
+            raise DomainError("task_forbidden", "This task only supports advisory artifacts", 403)
         job = connection.execute(
             "SELECT * FROM collection_jobs WHERE run_id=%s", (run["id"],)
         ).fetchone()

@@ -27,7 +27,7 @@ class IntegrationStatus(BaseModel):
     implemented: bool
     configured: bool
     health: Literal["healthy", "unavailable", "unknown"]
-    execution_mode: Literal["simulated", "hermes", "in_process", "unavailable"]
+    execution_mode: Literal["simulated", "hermes", "in_process", "sandbox", "unavailable"]
     capabilities: list[str]
     disabled_reason: str | None
     checked_at: datetime | None

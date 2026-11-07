@@ -2,7 +2,9 @@
 
 from typing import Literal, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+RuntimeTask = Literal["follow_up", "collector_brief", "improvement_review", "manager_chat"]
 
 
 class StrictModel(BaseModel):
@@ -16,17 +18,27 @@ class HistoryMessage(StrictModel):
 
 class RuntimeRequest(StrictModel):
     application_run_id: str = Field(min_length=1, max_length=100)
-    account_id: str = Field(min_length=1, max_length=100)
+    account_id: str | None = Field(default=None, min_length=1, max_length=100)
+    context_account_id: str | None = Field(default=None, min_length=1, max_length=100)
     execution_attempt_id: str = Field(min_length=1, max_length=100)
     fence: int = Field(ge=1)
-    task_type: Literal["follow_up", "collector_brief", "improvement_review"]
+    task_type: RuntimeTask
     instruction: str = Field(min_length=1, max_length=2000)
     history: list[HistoryMessage] = Field(min_length=1, max_length=40)
+
+    @model_validator(mode="after")
+    def assignment_matches_task(self):
+        if self.task_type == "manager_chat":
+            if self.account_id is not None:
+                raise ValueError("manager_chat requires portfolio scope")
+        elif not self.account_id:
+            raise ValueError("Account tasks require account_id")
+        return self
 
 
 class FinalRuntimeResult(StrictModel):
     application_run_id: str = Field(min_length=1, max_length=100)
-    task_type: Literal["follow_up", "collector_brief", "improvement_review"]
+    task_type: RuntimeTask
     summary: str = Field(min_length=1, max_length=4000)
     artifact_ids: list[str] = Field(max_length=20)
     candidate_message_id: str | None = None

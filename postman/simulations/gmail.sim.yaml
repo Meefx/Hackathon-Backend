@@ -1,0 +1,9 @@
+simulation: gmail-sandbox
+routing: path
+mocks:
+  - name: google-gmail
+    routeKey: google
+    origin:
+      - oauth2.googleapis.com
+      - gmail.googleapis.com
+    path: postman/mocks/gmail

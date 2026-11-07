@@ -1,22 +1,29 @@
 from datetime import datetime
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from psycopg import Connection
 from psycopg.types.json import Jsonb
 
+from app.config import Settings
 from app.db.connection import connect
 from app.modules.audit.service import append_event
 from app.modules.cases.repository import lock_case
+from app.modules.manager.service import reserve_run_session
 from app.modules.runs import repository as repo
+from app.modules.runs.schemas import StartRunRequest
 from app.shared.caller import Caller
 from app.shared.errors import DomainError
 from app.shared.idempotency import record, replay
 
+if TYPE_CHECKING:
+    from app.modules.manager.chat_schemas import ManagerChatRequest
+
 
 def authorize_assignment(
-    connection: Connection,
+    connection: Connection[dict[str, Any]],
     caller: Caller,
-    account_id: str,
+    account_id: str | None,
     run_id: str | None,
     now: datetime,
     allow_inactive: bool = False,
@@ -25,86 +32,128 @@ def authorize_assignment(
     repo.check_assignment(connection, caller, account_id, run_id, now, allow_inactive)
 
 
+def authorize_portfolio_assignment(
+    connection: Connection[dict[str, Any]], run_id: str, caller: Caller, now: datetime
+) -> dict[str, Any]:
+    """Require an active agent/worker lease for a portfolio manager run."""
+    run = repo.require_run(connection, run_id, True)
+    if (
+        caller.actor_kind not in ("worker", "agent")
+        or run["account_id"] is not None
+        or run["payload"].get("task_type") != "manager_chat"
+    ):
+        raise DomainError("assignment_denied", "Active portfolio chat assignment required", 403)
+    authorize_assignment(connection, caller, None, run_id, now)
+    return run
+
+
+def record_advisory_event(
+    connection: Connection[dict[str, Any]], run_id: str, now: datetime
+) -> None:
+    """Record a bounded event after a fenced manager artifact write."""
+    repo.add_event(connection, run_id, "artifact_submitted", "Manager advisory saved", now)
+
+
 def start_run(settings, account_id, request, caller, now):
-    payload = request.model_dump(mode="json")
-    key = str(request.idempotency_key)
-    scope = "start_run:" + account_id + ":" + caller.principal_id
     with connect(settings.database_url) as connection:
+        return start_run_in_transaction(connection, settings, account_id, request, caller, now)
+
+
+def start_run_in_transaction(
+    connection: Connection[dict[str, Any]],
+    settings: Settings,
+    account_id: str | None,
+    request: "StartRunRequest | ManagerChatRequest",
+    caller: Caller,
+    now: datetime,
+) -> dict[str, Any]:
+    """Admit a durable run inside the caller-owned transaction."""
+    payload = request.model_dump(mode="json")
+    if getattr(request, "review_id", None) is None:
+        payload.pop("review_id", None)
+    key = str(request.idempotency_key)
+    portfolio = account_id is None
+    if portfolio:
+        if caller.actor_kind != "operator" or request.task_type != "manager_chat":
+            raise DomainError("assignment_denied", "Operator portfolio chat required", 403)
+        scope = "start_manager_chat:" + caller.principal_id
+    else:
+        assert account_id is not None
+        if request.task_type == "manager_chat":
+            raise DomainError("assignment_denied", "Portfolio chat requires global scope", 403)
+        scope = "start_run:" + account_id + ":" + caller.principal_id
         lock_case(connection, account_id)
-        if old := replay(connection, scope, key, payload):
-            return old
-        session_id = str(request.manager_session_id or uuid4())
-        if request.manager_session_id:
-            session = connection.execute(
-                "SELECT * FROM manager_sessions WHERE id=%s FOR UPDATE", (session_id,)
-            ).fetchone()
-            if (
-                not session
-                or session["account_id"] != account_id
-                or session["caller_id"] != caller.principal_id
-            ):
-                raise DomainError(
-                    "session_denied", "Session does not belong to this account/caller", 403
-                )
-        else:
-            connection.execute(
-                "INSERT INTO manager_sessions(id,account_id,caller_id,title,"
-                "created_at,updated_at) VALUES (%s,%s,%s,%s,%s,%s)",
-                (session_id, account_id, caller.principal_id, request.instruction[:80], now, now),
-            )
-        session = connection.execute(
-            "UPDATE manager_sessions SET next_turn=next_turn+1 "
-            "WHERE id=%s RETURNING next_turn-1 AS turn",
-            (session_id,),
-        ).fetchone()
-        run_id = str(uuid4())
-        connection.execute(
-            "INSERT INTO collection_runs(id,account_id,manager_session_id,caller_id,"
-            "request_key,payload,status,requested_runtime_mode,session_turn_index,created_at) "
-            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-            (
-                run_id,
-                account_id,
-                session_id,
-                caller.principal_id,
-                key,
-                Jsonb(payload),
-                "queued",
-                request.runtime_mode,
-                session["turn"],
-                now,
-            ),
-        )
-        connection.execute("INSERT INTO collection_jobs(run_id) VALUES (%s)", (run_id,))
-        connection.execute(
-            "INSERT INTO manager_turns VALUES (%s,%s,%s,%s,%s,%s,%s)",
-            (
-                str(uuid4()),
-                session_id,
-                session["turn"],
-                run_id,
-                "operator",
-                request.instruction,
-                now,
-            ),
-        )
-        connection.execute(
-            "UPDATE manager_sessions SET last_run_id=%s,updated_at=%s WHERE id=%s",
-            (run_id, now, session_id),
-        )
-        repo.add_event(connection, run_id, "queued", "Task admitted to durable queue", now)
+    if old := replay(connection, scope, key, payload):
+        return old
+    review_id = getattr(request, "review_id", None)
+    if review_id:
+        from app.modules.reviews.service import get_account_review
+
+        assert account_id is not None
+
+        if caller.actor_kind != "operator":
+            raise DomainError("review_forbidden", "Operator review discussion required", 403)
+        get_account_review(connection, account_id, str(review_id))
+    session_id = str(request.manager_session_id or uuid4())
+    turn = reserve_run_session(
+        connection,
+        session_id,
+        account_id,
+        caller.principal_id,
+        request.instruction,
+        now,
+        existing=request.manager_session_id is not None,
+        context_account_id=getattr(request, "context_account_id", None),
+    )
+    run_id = str(uuid4())
+    connection.execute(
+        "INSERT INTO collection_runs(id,account_id,manager_session_id,caller_id,"
+        "request_key,payload,status,requested_runtime_mode,session_turn_index,created_at) "
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        (
+            run_id,
+            account_id,
+            session_id,
+            caller.principal_id,
+            key,
+            Jsonb(payload),
+            "queued",
+            request.runtime_mode,
+            turn,
+            now,
+        ),
+    )
+    connection.execute("INSERT INTO collection_jobs(run_id) VALUES (%s)", (run_id,))
+    connection.execute(
+        "INSERT INTO manager_turns VALUES (%s,%s,%s,%s,%s,%s,%s)",
+        (
+            str(uuid4()),
+            session_id,
+            turn,
+            run_id,
+            "scheduler" if caller.actor_kind == "scheduler" else "operator",
+            request.instruction,
+            now,
+        ),
+    )
+    connection.execute(
+        "UPDATE manager_sessions SET last_run_id=%s,updated_at=%s WHERE id=%s",
+        (run_id, now, session_id),
+    )
+    repo.add_event(connection, run_id, "queued", "Task admitted to durable queue", now)
+    if not portfolio:
         append_event(
             connection, account_id, "run_submitted", caller.actor_kind, "queued", now, run_id
         )
-        result = {
-            "run_id": run_id,
-            "manager_session_id": session_id,
-            "status": "queued",
-            "version": repo.require_run(connection, run_id)["version"],
-            "created_at": now.isoformat(),
-        }
-        record(connection, scope, key, payload, result)
-        return result
+    result = {
+        "run_id": run_id,
+        "manager_session_id": session_id,
+        "status": "queued",
+        "version": repo.require_run(connection, run_id)["version"],
+        "created_at": now.isoformat(),
+    }
+    record(connection, scope, key, payload, result)
+    return result
 
 
 def cancel_run(settings, run_id, request, caller, now):
@@ -215,15 +264,16 @@ def recover_run(settings, run_id, request, caller, clock):
             repo.add_event(
                 connection, run_id, "recovered", "Safe pre-submission task requeued", now
             )
-        append_event(
-            connection,
-            run["account_id"],
-            "run_reconciled",
-            caller.actor_kind,
-            status.status if status else "queued",
-            now,
-            run_id,
-        )
+        if run["account_id"] is not None:
+            append_event(
+                connection,
+                run["account_id"],
+                "run_reconciled",
+                caller.actor_kind,
+                status.status if status else "queued",
+                now,
+                run_id,
+            )
         result = RunSnapshot.model_validate(repo.snapshot(connection, run_id)).model_dump(
             mode="json"
         )

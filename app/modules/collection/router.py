@@ -32,6 +32,7 @@ from app.modules.runs.schemas import (
     RunSnapshot,
     StartRunRequest,
 )
+from app.modules.scheduling.schemas import AutomationStatus
 from app.shared.caller import Caller
 from app.shared.clock import utcnow
 from app.shared.errors import DomainError
@@ -60,6 +61,13 @@ def integration_registry():
     return integrations(get_settings())
 
 
+@router.get("/collection-automation/status", response_model=AutomationStatus)
+def automation_status():
+    from app.modules.scheduling.service import status
+
+    return status(get_settings(), utcnow())
+
+
 @router.post("/accounts/{account_id}/runs", response_model=RunAccepted, status_code=202)
 def start_run(account_id: str, request: StartRunRequest):
     return runs.start_run(get_settings(), account_id, request, Caller(), utcnow())
@@ -77,8 +85,8 @@ def run_history(
 ):
     with connect(get_settings().database_url) as connection:
         lock_case(connection, account_id)
-        query = "SELECT * FROM collection_runs WHERE account_id=%s AND caller_id=%s"
-        params: tuple[str, ...] = (account_id, Caller().principal_id)
+        query = "SELECT * FROM collection_runs WHERE account_id=%s AND caller_id IN (%s,%s)"
+        params: tuple[str, ...] = (account_id, Caller().principal_id, "daily-collection-scheduler")
         if request_key:
             query += " AND request_key=%s"
             params += (request_key,)
@@ -123,28 +131,33 @@ def recover_run(run_id: str, request: RecoverRunRequest):
 def manager_sessions(account_id: str, limit: Limit = 20, offset: Offset = 0):
     with connect(get_settings().database_url) as connection:
         lock_case(connection, account_id)
-        return page(
+        result = page(
             connection,
-            "SELECT * FROM manager_sessions WHERE account_id=%s AND caller_id=%s "
+            "SELECT * FROM manager_sessions WHERE account_id=%s AND caller_id IN (%s,%s) "
             "ORDER BY created_at DESC,id DESC",
-            (account_id, Caller().principal_id),
+            (account_id, Caller().principal_id, "daily-collection-scheduler"),
             limit,
             offset,
         )
+        for session in result["items"]:
+            session["origin"] = (
+                "scheduled" if session["caller_id"] == "daily-collection-scheduler" else "operator"
+            )
+        return result
 
 
 @router.get("/manager-sessions/{session_id}/messages", response_model=Page[ManagerTurn])
 def manager_turns(session_id: str, limit: Limit = 20, offset: Offset = 0):
     with connect(get_settings().database_url) as connection:
         if not connection.execute(
-            "SELECT id FROM manager_sessions WHERE id=%s AND caller_id=%s",
-            (session_id, Caller().principal_id),
+            "SELECT id FROM manager_sessions WHERE id=%s AND caller_id IN (%s,%s)",
+            (session_id, Caller().principal_id, "daily-collection-scheduler"),
         ).fetchone():
             raise DomainError("not_found", "Manager session not found", 404)
         return page(
             connection,
             "SELECT * FROM manager_turns WHERE session_id=%s ORDER BY turn_index,"
-            "CASE role WHEN 'operator' THEN 0 ELSE 1 END",
+            "CASE role WHEN 'manager' THEN 1 ELSE 0 END",
             (session_id,),
             limit,
             offset,

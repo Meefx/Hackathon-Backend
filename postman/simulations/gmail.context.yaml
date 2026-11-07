@@ -1,0 +1,65 @@
+purpose:
+  stands_in_for: Google OAuth token exchange and Gmail messages.send for synthetic test mailboxes.
+  unblocks: Local HTTP verification of serialization, failure handling and durable duplicate suppression.
+assumptions:
+  - id: google-send-request-contract
+    status: supported
+    claim: Gmail messages.send accepts an OAuth bearer token and an RFC 2822 message encoded as base64url in raw.
+    reason: The official Gmail discovery document describes this request shape and the gmail.send scope.
+    verification: >-
+      On 2026-11-07 the orchestrator inspected the official v1 discovery document.
+      This local stand-in validates synthetic bearer credentials and the MIME sender,
+      recipient, subject, folded Message-ID and body. The HTTP success test passed.
+      This establishes request compatibility with the inspected contract, while
+      live Google credentials and delivery remain unverified.
+    source: >-
+      https://gmail.googleapis.com/$discovery/rest?version=v1;
+      app/integrations/gmail/client.py;
+      postman/mocks/gmail/default.js;
+      tests/integration/test_gmail_simulation.py
+    updated_at: "2026-11-07"
+  - id: local-retries-do-not-resend
+    status: supported
+    claim: In the four local scenarios, repeating one test request ID produced exactly one OAuth refresh and one Gmail send request.
+    reason: The caller's persisted journal suppresses a second send for success, HTTP 403, HTTP 500 and an accepted request whose response times out.
+    verification: >-
+      With fingerprint local-gmail-2026-11-07, ran the real send_test service through
+      httpx.HTTPTransport against the Postman one-port simulation. All four tests
+      passed. Control-state counts and the NDJSON request events showed one refresh
+      and one send per scenario. The timeout stand-in recorded acceptance before
+      delaying its response. Both calls returned gmail_delivery_unknown and the
+      durable started marker blocked the duplicate request. The journal persisted
+      submitted after success and failed after HTTP 403. All four HTTP cases passed
+      again after relocating the provider to app/integrations/gmail, preserving
+      the rule that collection channel adapters are imported only by the gate.
+    source: >-
+      tests/integration/test_gmail_simulation.py;
+      app/integrations/gmail/sandbox.py;
+      postman/mocks/gmail/default.js
+    updated_at: "2026-11-07"
+  - id: gmail-timeout-side-effects
+    status: unknown
+    claim: A particular real Gmail timeout can be reconciled as either an accepted or rejected email.
+    reason: Local tests model acceptance before a timeout, while real Gmail was not contacted and provides no caller idempotency-key guarantee in the inspected send contract.
+    verification: >-
+      On 2026-11-07 only local synthetic-provider scenarios were exercised.
+      Real OAuth authorization, Gmail API availability, sender identity and inbox
+      receipt still require the operator's Google account and consenting team mailbox.
+      Reconcile the sender's Sent folder before initiating a distinct request after
+      an ambiguous outcome. Owner mock discovery was skipped because Postman whoami
+      reported no account. Postman 1.76.0 rejects the status command documented by
+      the skill, so this stand-in was built from the official provider contract.
+      A formatting-only rerun passed all four HTTP cases. lsof confirmed the CLI
+      listener bound 127.0.0.1:4859. Ctrl+C closed that listener but the CLI emitted
+      an internal ConnectError about HTTP/2 GOAWAY during shutdown and exited 1.
+      Test outcomes and request counts had already been verified before shutdown.
+    source: >-
+      https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/send;
+      app/integrations/gmail/client.py;
+      postman/simulations/gmail.sim.yaml
+    updated_at: "2026-11-07"
+fingerprints:
+  - id: local-gmail-2026-11-07
+    date: "2026-11-07"
+    commit: 6c177093cec855ce7d872e03506c852a42314b5e (dirty working tree)
+    cli: Postman 1.76.0

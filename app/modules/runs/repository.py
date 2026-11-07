@@ -28,6 +28,11 @@ def add_event(connection, run_id, event_type, summary, now, origin="backend_veri
 
 def snapshot(connection, run_id):
     row = require_run(connection, run_id)
+    row["origin"] = (
+        "scheduled" if row["caller_id"] == "daily-collection-scheduler" else "operator"
+    )
+    row["scope"] = "portfolio" if row["account_id"] is None else "account"
+    row["context_account_id"] = row["payload"].get("context_account_id")
     row["steps"] = connection.execute(
         "SELECT * FROM run_steps WHERE run_id=%s ORDER BY sequence", (run_id,)
     ).fetchall()

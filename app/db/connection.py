@@ -10,7 +10,7 @@ from psycopg_pool import ConnectionPool
 
 from app.config import get_settings
 
-REQUIRED_REVISION = "0005_knowledge_collection"
+REQUIRED_REVISION = "0008_whatsapp_collection"
 
 
 @contextmanager

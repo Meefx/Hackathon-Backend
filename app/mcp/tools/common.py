@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from app.mcp.auth import current_principal
 from app.mcp.schemas.collection import Assignment
+from app.mcp.schemas.manager import PortfolioAssignment
 from app.shared.caller import Caller
 from app.shared.errors import DomainError
 
@@ -26,6 +27,21 @@ def assigned_caller(request: Assignment, *, write: bool = False) -> Caller:
         principal_id=principal.principal_id,
         actor_kind="agent",
         account_id=request.account_id,
+        run_id=request.run_id,
+        execution_attempt_id=request.execution_attempt_id,
+        fence=request.fence,
+    )
+
+
+def portfolio_caller(request: PortfolioAssignment, *, write: bool = False) -> Caller:
+    principal = current_principal.get()
+    required = "collection:write" if write else "collection:read"
+    if principal is None or principal.audience != "/mcp" or required not in principal.scopes:
+        raise ToolError(json.dumps({"code": "permission_denied", "message": "Tool access denied"}))
+    return Caller(
+        principal_id=principal.principal_id,
+        actor_kind="agent",
+        account_id=None,
         run_id=request.run_id,
         execution_attempt_id=request.execution_attempt_id,
         fence=request.fence,
