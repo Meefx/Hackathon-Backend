@@ -29,6 +29,11 @@ class PortfolioAccountRequest(PortfolioAssignment):
     account_id: str = Field(min_length=1, max_length=100)
 
 
+class ManagerKnowledgeRequest(PortfolioAssignment):
+    query: str = Field(min_length=1, max_length=1000)
+    limit: int = Field(default=5, ge=1, le=5, strict=True)
+
+
 class PortfolioAccountPage(BaseModel):
     items: list[Account] = Field(max_length=100)
     total: int = Field(ge=0)

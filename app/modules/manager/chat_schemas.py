@@ -5,7 +5,13 @@ from uuid import UUID
 
 from pydantic import Field
 
+from app.modules.knowledge_context.contracts import KnowledgeResult
 from app.modules.runs.schemas import RuntimeMode, WriteModel
+
+
+class ManagerKnowledgeResult(KnowledgeResult):
+    principal: str | None = None
+    product: str | None = None
 
 
 class ManagerChatRequest(WriteModel):

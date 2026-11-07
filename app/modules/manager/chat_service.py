@@ -16,7 +16,7 @@ from app.modules.compliance.service import evaluate_contact_policy
 from app.modules.conversations.redaction import sanitize_conversation
 from app.modules.dashboard.service import summarize
 from app.modules.manager import chat_repository as repository
-from app.modules.manager.chat_schemas import ManagerChatRequest
+from app.modules.manager.chat_schemas import ManagerChatRequest, ManagerKnowledgeResult
 from app.modules.manager.schemas import TaskProposal
 from app.modules.runs.service import (
     authorize_portfolio_assignment,
@@ -158,7 +158,70 @@ class ManagerChatService:
                 "selected_account": self._inspect(connection, account_id, now)
                 if account_id
                 else None,
+                "knowledge": self._knowledge(
+                    connection,
+                    run,
+                    caller,
+                    now,
+                    "Approved collection regulations SOP privacy escalation contact policy",
+                    3,
+                ),
             }
+
+    def search_knowledge(self, run_id: str, query: str, caller: Caller, limit: int = 5) -> dict:
+        """Read approved knowledge for an active Manager assignment; audit every read."""
+        if type(limit) is not int or not 1 <= limit <= 5:
+            raise DomainError("invalid_input", "Knowledge limit must be 1–5", 422)
+        now = self.clock()
+        with connect(self.settings.database_url) as connection:
+            run = self._authorize(connection, run_id, caller, now)
+            return self._knowledge(connection, run, caller, now, query, limit)
+
+    def _knowledge(self, connection, run, caller, now, query: str, limit: int) -> dict:
+        from app.integrations.knowledge.trust_adapter import map_source
+        from app.modules.knowledge import service as knowledge
+        from app.modules.knowledge.audit import append_event
+        from app.modules.knowledge.authorization import Actor
+        from app.shared.idempotency import digest
+        from app.trust.errors import TrustError
+
+        scope = repository.knowledge_scope(connection, run["payload"].get("context_account_id"))
+        if scope is None:
+            return ManagerKnowledgeResult(
+                status="unavailable",
+                source_mode="knowledge_module",
+                reason_code="knowledge_scope_required",
+            ).model_dump(mode="json")
+        actor = Actor(caller.principal_id, "manager", scope["principal"], scope["product"])
+        try:
+            result = knowledge.retrieve(connection, actor, query, now, limit=limit)
+        except TrustError as error:
+            raise DomainError(
+                "knowledge_unavailable", "Approved knowledge unavailable", 503
+            ) from error
+        # A queued or expired assignment cannot become an unrestricted KB reader.
+        self._authorize(connection, run["id"], caller, self.clock())
+        append_event(
+            connection,
+            actor,
+            "manager.knowledge_retrieved",
+            {
+                "run_id": run["id"],
+                "query_hash": digest(query),
+                "chunk_ids": [row["chunk_id"] for row in result["results"]],
+                "document_ids": sorted({row["document_id"] for row in result["results"]}),
+            },
+            now,
+        )
+        return ManagerKnowledgeResult(
+            status="ready" if result["results"] else "no_results",
+            source_mode="knowledge_module",
+            principal=actor.principal,
+            product=actor.product,
+            sources=[map_source(row) for row in result["results"]],
+            critical_context=result["critical_context"],
+            verification_profile=result["verification_profile"],
+        ).model_dump(mode="json")
 
     def submit_response(
         self, run_id: str, text: str, caller: Caller, idempotency_key: UUID | str

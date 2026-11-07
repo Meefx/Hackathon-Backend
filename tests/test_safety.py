@@ -486,7 +486,8 @@ def test_dispatch_rechecks_clock_after_blocking_state_locks(monkeypatch):
     def blocking_authority_lock(*args):
         clock.value = after_close
 
-    def evaluate(*args):
+    def evaluate(*args, exclude_message_id=None):
+        assert exclude_message_id == message["id"]
         result = evaluate_contact(contact(data_verified_at=before_close.isoformat()), args[-1])
         return {**result, "reason_codes": [code.lower() for code in result["reason_codes"]]}
 

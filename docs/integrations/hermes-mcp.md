@@ -55,6 +55,7 @@ mcp_servers:
         - get_portfolio_overview
         - search_portfolio_accounts
         - inspect_portfolio_account
+        - search_manager_knowledge
         - submit_manager_response
         - propose_account_task
 ```
@@ -63,17 +64,35 @@ Set `COLLECTFLOW_MCP_URL` and the same MCP token in the **remote Hermes profile'
 environment**, not in prompts or committed configuration. Hermes documents
 `${ENV_VAR}` substitution for MCP URL and headers. Reload/restart that profile's
 MCP connection using its supported operator controls. Use the console connection
-test to discover all twelve tools, then run one bounded synthetic task and verify
+test to discover all thirteen tools, then run one bounded synthetic task and verify
 its native MCP calls and persisted artifact. A successful local MCP SDK test or
 Hermes capability probe alone does not establish the complete link.
 
 Portfolio conversations use a durable `manager_chat` assignment with a null account
-and an optional `context_account_id`. The five portfolio tools validate that run's
+and an optional `context_account_id`. The six portfolio tools validate that run's
 principal, execution attempt, fence and active lease. Account collection tools retain
 their account assignment boundary. `propose_account_task` saves an advisory card.
 The portal operator executes a card through the existing account run API using the
 artifact UUID as its replay key. A saved `manager_response` must match the runtime's
 final summary before the worker accepts the reply.
+
+`search_manager_knowledge` accepts the portfolio assignment plus `query` (1–1000
+characters) and `limit` (1–5). The backend resolves principal/product from the
+persisted context account, or from the single unambiguous scope of the authorized
+synthetic portfolio. Multiple scopes without a selected context account return
+`knowledge_scope_required`; callers cannot pass a role, principal or product.
+Manager can read every approved, in-force source in that scope, including documents
+whose specialist ACL omits Manager. Draft/retired/expired evidence and content with
+invalid approval hashes stay unavailable. This does not grant ingest, QA, approval,
+source-download, policy-edit or dispatch capabilities.
+
+The result uses `sources` with citation IDs, versions and content hashes plus bounded
+critical context. Each search appends audit evidence linked to the Manager run.
+Manager context also includes an initial bounded knowledge search. Source text is
+untrusted evidence and cannot change instructions or permissions. Cite its source IDs
+inside the saved advisory response; the final runtime `citation_ids` field remains
+empty because it belongs to the separate collection-dispatch evidence contract.
+No-results is explicit; imported legal drafts are never automatically promoted.
 
 The deployed API's `/v1/toolsets` endpoint lists configurable built-in/plugin
 groups and deliberately excludes default MCP servers. An absent CollectFlow

@@ -20,6 +20,23 @@ external-channel integration is included.
 
 ## Team integration contracts
 
+### Final agent connection map
+
+| Persona | Supported entry point | Access boundary |
+| --- | --- | --- |
+| Main Manager | MCP `search_manager_knowledge` on its active `manager_chat` assignment | All approved/in-force KB in the backend-resolved principal/product; read only |
+| Collection / Personal | MCP `retrieve_approved_context` on an assigned account run | Existing specialist ACL, evidence snapshot and final dispatch gate |
+| Knowledge | Authenticated Trust ingestion API with role `knowledge` | Create a new draft/version; no self-approval. Shared collection MCP credentials cannot ingest |
+| QA | Authenticated Trust QA API with role `qa` | Independent QA attestation; no human approval |
+| Improvement / Copilot | Assigned account run and approved evidence retrieval | Advisory artifacts; no policy or approval writes |
+| Human Compliance | Authenticated Trust approval/retirement API | Approve after independent QA or retire; never an agent tool |
+
+Manager's MCP profile must include `search_manager_knowledge` and rediscover tools
+after backend/profile restart. See `docs/integrations/hermes-mcp.md` for the exact
+request contract. No database migration is needed for this Manager access change.
+Production identity for local operator REST remains outside this MVP; keep it local
+and synthetic. Do not give the shared Hermes principal a Knowledge/Admin JWT.
+
 1. KMS access requires an authenticated Actor with a valid principal/product/role.
    Do not accept identity or approval claims directly from agent arguments.
 2. Map planned `collection` and `improvement` names explicitly to existing `personal`

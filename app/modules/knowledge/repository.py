@@ -148,6 +148,8 @@ def approve_template(conn, parameters=()):
 
 
 def search_chunks(conn, parameters=()):
+    # Manager can read all published knowledge within its authenticated scope.
+    # The remaining roles still require the document's explicit access grant.
     return _rows(
         conn,
         """WITH allowed AS MATERIALIZED (
@@ -158,7 +160,8 @@ def search_chunks(conn, parameters=()):
         FROM trust.knowledge_chunks c JOIN trust.knowledge_documents d ON d.id=c.document_id
         WHERE d.principal=%s AND d.product=%s AND d.status='approved'
           AND d.effective_from<=%s AND (d.effective_until IS NULL OR d.effective_until>%s)
-          AND %s=ANY(d.access_roles) AND d.qa_hash=d.content_hash AND d.approved_hash=d.content_hash
+          AND %s=ANY(array_append(d.access_roles, 'manager'))
+          AND d.qa_hash=d.content_hash AND d.approved_hash=d.content_hash
     ), lexical AS (
         SELECT id,row_number() OVER (ORDER BY ts_rank_cd(search_vector,
             plainto_tsquery('english',%s)) DESC,id) AS rank

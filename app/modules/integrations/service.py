@@ -97,7 +97,17 @@ def integrations(settings):
     for name in ("email", "phone"):
         items.append(row(name, "channel", False, False, "unavailable", [], "channel_unavailable"))
     whatsapp = whatsapp_configured(settings)
-    items.append(row("whatsapp", "channel", True, whatsapp, "sandbox" if whatsapp else "unavailable", ["synthetic_case_dispatch", "signed_webhooks", "self_chat_only"], None if whatsapp else "waha_not_configured"))
+    items.append(
+        row(
+            "whatsapp",
+            "channel",
+            True,
+            whatsapp,
+            "sandbox" if whatsapp else "unavailable",
+            ["synthetic_case_dispatch", "signed_webhooks", "self_chat_only"],
+            None if whatsapp else "waha_not_configured",
+        )
+    )
     gmail = sandbox_configured(settings)
     items.append(
         row(
@@ -142,6 +152,7 @@ def agents(settings):
                         "improvement": "improvement_review",
                         "copilot": "collector_brief",
                     }[role],
+                    *(["search_manager_knowledge"] if role == "manager" else []),
                 ],
                 "unavailable_reason": None
                 if settings.demo_fixture_enabled

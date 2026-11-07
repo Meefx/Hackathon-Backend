@@ -232,3 +232,37 @@ unstaged changes, and clean diff checks. All merge work is staged, with HEAD sti
 `253135a` and MERGE_HEAD `2f33388`; no commit or push was performed by the agent.
 Existing application databases were not migrated during this PR reconciliation;
 upgrade tests used disposable databases containing synthetic data.
+
+## Final Manager and portable KB handoff (7 November 2026)
+
+Pulled `main` at `f323d1a` twice before finalization; both completed without conflicts.
+Erwan explicitly requested Manager read access to all KB and direct publication to main.
+Manager now has a dedicated `search_manager_knowledge` MCP tool and initial KB context.
+The intentional policy exception permits Manager to read all approved, in-force
+knowledge within its backend-resolved principal/product even when a specialist ACL
+omits Manager. Other roles keep their document grants. Draft/retired/expired evidence,
+cross-scope access, raw-source downloads, ingestion and approval remain denied.
+Retrieval records run-linked source/chunk IDs and hashes; advisory answer citations
+are text, not the separate dispatch approval contract. Invalid/expired assignments
+fail closed. No model-supplied role or scope is accepted.
+
+Full-suite first pass: `7 failed, 897 passed, 10 skipped, 1 warning in 230.27s`.
+The failures exposed main integration compatibility issues. Gmail's provider client
+imported the channel contract outside the sole-gate boundary; it now uses a structural
+read-only input Protocol without changing provider validation. Two existing safety
+fixtures were updated for main's new contracts: the clock-race mock accepts and asserts
+`exclude_message_id`, and the timezone fixture explicitly supplies `simulated_chat`.
+The no-delivery and exact HMAC/timezone assertions are unchanged; no test was removed
+or weakened. All affected cases and Gmail client regressions subsequently passed:
+`46 passed, 1 warning in 1.58s`. Ruff: `All checks passed!`; mypy:
+`Success: no issues found in 158 source files`. The Manager domain and actual MCP
+transport tests passed in the full-suite run. Skipped external simulation tests are
+not evidence of live provider verification.
+
+At Erwan's explicit request to carry KB data through GitHub, the repository includes
+one public-source bundle (15 PDFs and 15 pinned extraction sidecars, about 15 MB),
+plus its SHA-256 and `scripts/import-kb-demo.sh`. This is the explicit exception to
+the earlier no-PDF-in-Git convention. It contains no credentials, borrower records,
+operational database dump or approval tokens. The script verifies archive integrity,
+migrates the intended PostgreSQL target and stages review-required drafts using the
+existing idempotent source importer. It never grants automatic legal approval.

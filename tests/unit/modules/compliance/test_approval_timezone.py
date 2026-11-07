@@ -16,6 +16,7 @@ def binding(expiry):
             "text": "Synthetic reminder",
             "account_id": "synthetic-account",
             "citation_ids": [],
+            "channel": "simulated_chat",
         },
         {"recipient_id": "synthetic-recipient", "version": 1},
         {"policy_version": "synthetic-policy", "authority_hash": "synthetic-authority"},

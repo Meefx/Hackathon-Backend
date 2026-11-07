@@ -18,6 +18,21 @@ def require_context_account(connection: Connection[dict[str, Any]], account_id: 
         raise DomainError("not_found", "Context account not found", 404)
 
 
+def knowledge_scope(connection: Connection[dict[str, Any]], account_id: str | None) -> dict | None:
+    """Resolve one scope from the already-authorized synthetic portfolio.
+
+    An ambiguous portfolio requires the operator to select a context account.
+    Tool arguments never supply the principal, product or Manager role.
+    """
+    rows = connection.execute(
+        "SELECT DISTINCT a.principal,a.product FROM collection_authorities a "
+        "JOIN accounts p ON p.id=a.account_id "
+        "WHERE (%s::text IS NULL OR a.account_id=%s) LIMIT 2",
+        (account_id, account_id),
+    ).fetchall()
+    return rows[0] if len(rows) == 1 else None
+
+
 def require_session(
     connection: Connection[dict[str, Any]], session_id: str, account_id: str | None, caller_id: str
 ) -> dict[str, Any]:

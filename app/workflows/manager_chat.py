@@ -14,8 +14,12 @@ from app.shared.errors import DomainError
 
 def worker_caller(run: dict, attempt: str, fence: int) -> Caller:
     return Caller(
-        principal_id="local-worker", actor_kind="worker", account_id=None,
-        run_id=run["id"], execution_attempt_id=attempt, fence=fence,
+        principal_id="local-worker",
+        actor_kind="worker",
+        account_id=None,
+        run_id=run["id"],
+        execution_attempt_id=attempt,
+        fence=fence,
     )
 
 
@@ -62,6 +66,17 @@ def simulated_reply(context: dict[str, Any]) -> str:
     lines.append(
         "This simulator displays current backend facts. Select Hermes for free-form agent reasoning."
     )
+    knowledge = context.get("knowledge", {})
+    sources = knowledge.get("sources", [])
+    if sources:
+        lines.append(
+            "Approved knowledge references. "
+            + "; ".join(f"{source['title']} [{source['citation_id']}]" for source in sources)
+        )
+    else:
+        lines.append(
+            "No approved knowledge was retrieved for this scope; legal answers need review."
+        )
     return "\n\n".join(lines)
 
 
@@ -75,9 +90,18 @@ def execute_simulated_chat(
     selected = context["selected_account"]
     if selected:
         for task, instruction in (
-            ("collector_brief", "Analyze this account and prepare a brief for its human collector."),
-            ("follow_up", "Prepare a respectful collection reminder using approved account facts and SOP."),
-            ("improvement_review", "Review this account's collection process and propose improvements."),
+            (
+                "collector_brief",
+                "Analyze this account and prepare a brief for its human collector.",
+            ),
+            (
+                "follow_up",
+                "Prepare a respectful collection reminder using approved account facts and SOP.",
+            ),
+            (
+                "improvement_review",
+                "Review this account's collection process and propose improvements.",
+            ),
         ):
             service.propose_task(
                 run["id"], selected["account"]["id"], task, instruction, caller, uuid4()
@@ -87,7 +111,9 @@ def execute_simulated_chat(
         if job["cancellation_requested_at"]:
             finish(connection, run["id"], "cancelled", None, "Chat cancelled", now)
             return
-        add_step(connection, run["id"], "manager", "Portfolio and case facts analyzed (simulated)", now)
+        add_step(
+            connection, run["id"], "manager", "Portfolio and case facts analyzed (simulated)", now
+        )
         finish(connection, run["id"], "completed", "manager_replied", text, now)
 
 

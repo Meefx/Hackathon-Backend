@@ -386,8 +386,8 @@ The [source register](docs/REGULATORY_SOURCES.md) identifies 15 original PDFs an
 decrees. The shared Gemini research was checked against these originals; it is not
 itself a legal source. Original Indonesian text is preserved without machine rewriting.
 
-The latest head, `0009_collection_source_merge`, joins the source archive and
-collection channel migrations while preserving both published histories. Apply it to the intended
+The latest head, `0010_gmail_collection_demo`, includes the source archive and
+collection channel migrations while preserving published histories. Apply it to the intended
 PostgreSQL database, then run:
 
 ```sh
@@ -396,6 +396,14 @@ uv run alembic upgrade head
 uv run python -m app.modules.knowledge_sources.ingest --use-cache
 ```
 
+For teammate handoff, the public PDF/extraction bundle is included in
+`deployment/graceline-kb-public-sources.tar.gz` at Erwan's explicit request.
+With `DATABASE_URL` set to the intended local PostgreSQL 17 + pgvector database,
+run `bash scripts/import-kb-demo.sh`. Back up an existing target database first.
+The script checks the bundle hash, applies migrations, and stages all 15 sources
+as draft/review-required. It does not import borrower records or credentials and
+does not approve regulations. Re-running ingestion is idempotent.
+
 The CLI uses `DATABASE_URL` (or `TRUST_DATABASE_URL`) from the process environment,
 never dotenv. `--use-cache` accepts only byte/hash-pinned files under
 `data/knowledge_sources/`; otherwise it downloads from the configured HTTPS host
@@ -403,7 +411,8 @@ allowlist. Omit this flag to re-fetch originals. Restrict a run with
 `--source pojk22_2023`, or use `--manifest path/to/curator-controlled.json`.
 Changed PDF bytes fail the manifest pin and require a new source review.
 
-PDFs, extraction sidecars and backups stay outside Git. The local curated sidecars
+Only the explicitly requested public-source handoff bundle is included in Git;
+working PDFs, extraction sidecars and database backups remain ignored. The curated sidecars
 preserve exact reviewed page segmentation. A fresh checkout uses pypdf when they
 are absent; a different extraction remains review-required, and scanned/malformed
 content cannot silently become usable knowledge. Publisher availability or extraction

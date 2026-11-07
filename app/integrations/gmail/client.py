@@ -7,12 +7,12 @@ from email import policy
 from email.errors import HeaderParseError
 from email.headerregistry import Address
 from email.message import EmailMessage
+from typing import Protocol
 from uuid import UUID
 
 import httpx
 
 from app.config import Settings
-from app.integrations.channels.contracts import AuthorizedIntent
 from app.integrations.gmail.oauth import GoogleOAuthClient, read_refresh_token
 from app.shared.errors import DomainError
 
@@ -21,6 +21,19 @@ TEST_SUBJECT = "CollectFlow Gmail connection test"
 TEST_BODY = "CollectFlow Gmail connection test. This is a synthetic demo message."
 COLLECTION_SUBJECT = "[DEMO] Pengingat tagihan sintetis"
 MAX_RESPONSE_BYTES = 65536
+
+
+class CollectionMessageIntent(Protocol):
+    """Read-only provider input; the dispatch gate owns authorization."""
+
+    @property
+    def intent_key(self) -> str: ...
+
+    @property
+    def recipient_id(self) -> str: ...
+
+    @property
+    def text(self) -> str: ...
 
 
 def validate_mailbox(value: str) -> str:
@@ -73,7 +86,7 @@ class GmailClient:
         message.set_content(TEST_BODY)
         return self._send_message(message)
 
-    def send_collection_message(self, intent: AuthorizedIntent) -> dict[str, str]:
+    def send_collection_message(self, intent: CollectionMessageIntent) -> dict[str, str]:
         sender = validate_mailbox(self.settings.gmail_sender_email)
         recipient = validate_mailbox(self.settings.gmail_test_recipient)
         if intent.recipient_id != "email:" + recipient:
@@ -83,7 +96,9 @@ class GmailClient:
         try:
             request_id = UUID(intent.intent_key)
         except (ValueError, TypeError, AttributeError):
-            raise DomainError("gmail_intent_invalid", "Collection intent must have a UUID key", 422) from None
+            raise DomainError(
+                "gmail_intent_invalid", "Collection intent must have a UUID key", 422
+            ) from None
         message = EmailMessage(policy=policy.SMTP)
         message["From"] = sender
         message["To"] = recipient

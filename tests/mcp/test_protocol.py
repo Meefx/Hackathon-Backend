@@ -139,6 +139,7 @@ async def test_initialize_discover_and_structured_call_over_real_http():
                         "get_portfolio_overview",
                         "search_portfolio_accounts",
                         "inspect_portfolio_account",
+                        "search_manager_knowledge",
                         "submit_manager_response",
                         "propose_account_task",
                     }

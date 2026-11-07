@@ -24,7 +24,7 @@ def current_document(row, actor: Actor, at: datetime) -> bool:
         and row["effective_from"] <= at
         and (row["effective_until"] is None or at < row["effective_until"])
         and row["approved_hash"] == row["document_hash"] == row["qa_hash"]
-        and actor.role in row["access_roles"]
+        and (actor.role == "manager" or actor.role in row["access_roles"])
     )
 
 
