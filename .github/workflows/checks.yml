@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17-alpine
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: collectflow_test
           POSTGRES_PASSWORD: local-test-password
@@ -26,4 +26,5 @@ jobs:
           python-version: "3.12"
       - run: uv sync --locked
       - run: uv run ruff check .
-      - run: uv run pytest
+      - run: uv run mypy app
+      - run: uv run pytest -q

@@ -12,7 +12,7 @@ docker compose up --build -d --wait
 docker compose exec backend uv run --no-sync python -m app.seed
 ```
 
-Compose starts PostgreSQL 17, waits for database health, runs the versioned Alembic migration in the one-shot `migrate` service, and starts the API. Seeding is a separate, explicit operation. Rerunning it preserves existing rows and their first-seeded due dates, including concurrent runs.
+Compose starts PostgreSQL 17 with pgvector, waits for database health, runs the versioned Alembic migration in the one-shot `migrate` service, and starts the API. Seeding is a separate, explicit operation. Rerunning it preserves existing rows and their first-seeded due dates, including concurrent runs.
 
 The API listens at [http://localhost:8000](http://localhost:8000). Open [Swagger UI](http://localhost:8000/docs) or [OpenAPI](http://localhost:8000/openapi.json). PostgreSQL and backend published ports bind to loopback. `POSTGRES_PORT` and `BACKEND_PORT` in `.env` can change the host ports. The named `postgres_data` volume persists portfolio data across container recreation.
 
@@ -57,7 +57,7 @@ docker compose run --rm migrate
 docker compose up -d --wait backend
 ```
 
-Review target settings and take a consistent backup before changing a populated database. Future changes belong in new revisions under `migrations/versions/`. Update `REQUIRED_REVISION` in `app/db/connection.py` with the deployed head so `/ready` detects an outdated schema. The baseline downgrade drops all account data. Use downgrades only on an authorized disposable target or after verifying backup and restore.
+Review target settings and take a consistent backup before changing a populated database. Future changes belong in new revisions under `migrations/versions/`. Update `REQUIRED_REVISION` in `app/db/connection.py` with the deployed head so `/ready` detects an outdated schema. Revision `0002_trust` refuses downgrade when any trust table contains data. An existing unversioned `trust` schema is rejected without adopting or dropping it. Preserve the old database and use a reviewed export/forward migration; never stamp it as migrated. The baseline downgrade drops all account data. Use downgrades only on an authorized disposable target or after verifying backup and restore.
 
 Existing `data/collectflow.db` files are left in place. To preserve a legacy SQLite portfolio, first stop legacy writers or create a consistent snapshot with SQLite's backup API, including committed WAL data. Keep that source snapshot as a backup. Migrate an empty PostgreSQL destination, then import explicitly before demo seeding.
 
@@ -91,7 +91,7 @@ Pydantic models in `app/schemas.py` and generated OpenAPI define the HTTP contra
 
 ## Checks
 
-Tests require a dedicated PostgreSQL database whose name ends in `_test`. Each database test creates, migrates, and drops its own random schema within that database. `DATABASE_URL` from the developer environment is replaced for the test and restored afterward. The optional test service uses tmpfs storage.
+Tests require a dedicated PostgreSQL database whose name ends in `_test`. Each database test creates, migrates, and drops its own randomly named database. The configured test role must have CREATEDB; the base test database is never cleared. This isolates the fixed `trust` schema as well as portfolio data. `DATABASE_URL` from the developer environment is replaced for the test and restored afterward. The optional test service uses tmpfs storage.
 
 ```sh
 uv sync --locked
@@ -99,6 +99,7 @@ docker compose --profile test up -d --wait postgres-test
 TEST_DATABASE_URL=postgresql://collectflow_test:local-test-password@127.0.0.1:5433/collectflow_test \
   uv run pytest
 uv run ruff check .
+uv run mypy app
 docker compose --profile test stop postgres-test
 ```
 
@@ -116,7 +117,10 @@ app/modules/accounts/repository.py Account SQL
 app/modules/accounts/service.py    Aging and portfolio reads
 app/modules/dashboard/service.py   Portfolio aggregation
 app/seed.py                        Explicit fictional demo seed
-migrations/versions/               Versioned schema history
+app/modules/trust/                 Typed routes, service and repository boundary
+app/trust/                         Existing evidence and safety engine
+app/services/dispatch_gate.py      Sole simulated-channel entry point
+migrations/versions/               Accounts and trust versioned schema history
 compose.yaml                      Local PostgreSQL, migration, API, test service
 tests/                            Isolated PostgreSQL and HTTP tests
 ```
@@ -206,3 +210,79 @@ default) and `lock_timeout` (2,000ms); connection establishment is limited to fi
 libpq search-path options and reset when the transaction closes. A timed-out sync MCP call waits for
 its bounded database operation and rollback to finish; cancellation never abandons a thread that can
 write later. These are per-statement/dependency bounds, not a total multi-statement transaction deadline.
+## Evidence-control MVP
+
+Erwan's contribution adds approved knowledge retrieval, weighted source dependencies,
+source retirement, deterministic safety checks, synthetic dispatch and a hash-chained
+audit. Portfolio and trust use PostgreSQL 17 with pgvector. The five-agent orchestration
+and MCP adapters remain future integration work. Real channels and payments are absent.
+
+### Integrated API
+
+Trust routes are opt-in on the team's main API: set `TRUST_ENABLED=true` and supply
+independent `TRUST_JWT_SECRET` and `TRUST_APPROVAL_SECRET` values of at least 32 random
+bytes each through the environment. Secrets have no usable defaults. Trust uses
+`DATABASE_URL` unless `TRUST_DATABASE_URL` explicitly selects another migrated database.
+Keep `TRUST_DEMO_AUTH_ENABLED=false` for the integrated backend. Compose enforces that
+setting. Provision scoped signed sessions through your trusted identity adapter;
+production identity integration is outside this MVP.
+
+Canonical routes use `/api/v1/trust`: knowledge documents/search/graph, templates,
+cases/outreach/conversations, and audit events/verification. Pydantic response schemas
+appear in OpenAPI. All use the same service, transaction boundary and dispatch gate.
+There is no unrestricted direct-send endpoint. The portfolio API remains compatible.
+
+### Explicit local demonstration
+
+The demo launcher provides a local identity picker and fresh signing keys in memory.
+It binds only to loopback, fixes time to Monday 9 November 2026 at 10:00 WIB and uses
+synthetic records. Demo approvals demonstrate the workflow, not actual legal review.
+
+Run on a **fresh migrated database**, or the portfolio database migrated from
+`0001_accounts`. The former standalone bootstrap database is not automatically adopted.
+For the default Compose database, run from the repository root:
+
+```sh
+uv sync --locked
+docker compose up -d --wait postgres
+export DATABASE_URL=postgresql://collectflow:local-demo-password@127.0.0.1:5432/collectflow
+uv run alembic upgrade head
+uv run python -m app.trust.demo --serve --port 8001
+```
+
+Open [the console](http://127.0.0.1:8001/console) or
+[Swagger](http://127.0.0.1:8001/docs). The standalone app retains hidden unversioned
+route aliases for earlier demo clients; new callers use `/api/v1/trust`. Restarting
+invalidates sessions and dispatch tokens; persisted knowledge approvals remain.
+If port 8001 is busy, choose a different `--port`.
+
+Native PostgreSQL 17 with pgvector is also supported. Set `DATABASE_URL` to that DSN
+and run Alembic before launching. If using `TRUST_DATABASE_URL`, migrate that exact
+DSN by setting `DATABASE_URL` to it for the Alembic command. Startup performs readiness
+checks only and never creates tables. `docker-compose.trust.yml` has been superseded
+by the shared `compose.yaml` stack.
+
+To verify the synthetic loop without a browser:
+
+```sh
+uv run python -m app.trust.demo --report docs/evidence/demo.json
+uv run python -m app.trust.benchmark --requests 100
+```
+
+Mutating POSTs except demo login require an `Idempotency-Key` UUID. Search always
+checks current knowledge state even with a repeated key. Scope comes from the signed
+session. List queries are bounded and expose limit/offset pagination. No portfolio
+account ID is automatically treated as a borrower identity or collection mandate.
+
+### Limits and handoff
+
+Read [handoff and integration](docs/TRUST_HANDOFF.md),
+[scope](docs/TRUST_MVP.md), [security](docs/SECURITY.md) and
+[observed verification](docs/09_Implementation_Report.md).
+Vectors are a **nonsemantic hash baseline**; Layer 2 is **mocked**. Real semantic
+retrieval, live guardrail model quality, full five-agent orchestration and the original
+50-persona evaluation are not claimed. Critical evidence expands within a fixed context
+budget and verifies hashes. Every dependency remains mandatory regardless of weight.
+
+The global audit lock serializes trust writes. The sequential local benchmark is not
+a production load test. Browser permission was declined; no visual QA is claimed.

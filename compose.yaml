@@ -22,12 +22,17 @@ x-backend: &backend
     MCP_BEARER_TOKEN: ${MCP_BEARER_TOKEN:-}
     MCP_PRINCIPAL_ID: ${MCP_PRINCIPAL_ID:-hermes-agent}
     MCP_ALLOWED_HOSTS: '${MCP_ALLOWED_HOSTS:-["127.0.0.1:*","localhost:*"]}'
-    MCP_ALLOWED_ORIGINS: '${MCP_ALLOWED_ORIGINS:-["http://127.0.0.1:*","http://localhost:*"]}' 
+    MCP_ALLOWED_ORIGINS: '${MCP_ALLOWED_ORIGINS:-["http://127.0.0.1:*","http://localhost:*"]}'
+    TRUST_ENABLED: ${TRUST_ENABLED:-false}
+    TRUST_JWT_SECRET: ${TRUST_JWT_SECRET:-}
+    TRUST_APPROVAL_SECRET: ${TRUST_APPROVAL_SECRET:-}
+    TRUST_DEMO_AUTH_ENABLED: "false"
+    SIMULATION_MODE: "true"
     CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:3000"]}'
 
 services:
   postgres:
-    image: postgres:17-alpine
+    image: pgvector/pgvector:pg17
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-collectflow}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-demo-password}
@@ -95,7 +100,7 @@ services:
         condition: service_completed_successfully
 
   postgres-test:
-    image: postgres:17-alpine
+    image: pgvector/pgvector:pg17
     profiles: ["test"]
     environment:
       POSTGRES_USER: collectflow_test

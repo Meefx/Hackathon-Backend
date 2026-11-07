@@ -1,0 +1,1 @@
+"""Shared, injectable infrastructure."""

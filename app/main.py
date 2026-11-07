@@ -14,6 +14,7 @@ from app.modules.collection.router import router as collection_router
 from app.modules.dashboard.service import summarize
 from app.schemas import Account, AccountPage, CollectionStatus, Dashboard, Health
 from app.shared.errors import DomainError
+from app.trust.app import configure_trust
 
 
 def create_app() -> FastAPI:
@@ -28,7 +29,7 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_methods=["GET", "POST"],
-        allow_headers=["Accept", "Content-Type"],
+        allow_headers=["Accept", "Content-Type", "Authorization", "Idempotency-Key"],
     )
 
     app.include_router(collection_router)
@@ -89,6 +90,9 @@ def create_app() -> FastAPI:
         if account is None:
             raise HTTPException(status_code=404, detail="Account not found")
         return account
+
+    if settings.trust_enabled:
+        configure_trust(app, settings.trust_settings())
 
     return app
 

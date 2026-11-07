@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Graceline | Evidence control</title>
+    <style>
+      :root {
+        font-family: Inter, system-ui, sans-serif;
+        color: #0f172a;
+        background: #f8fafc;
+        font-size: 15px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+      }
+      header,
+      main {
+        max-width: 1120px;
+        margin: auto;
+        padding: 28px;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      header strong {
+        font-size: 21px;
+        color: #0f766e;
+      }
+      a {
+        color: #0f766e;
+      }
+      .banner {
+        padding: 12px 28px;
+        background: #ede9fe;
+        color: #5b21b6;
+        text-align: center;
+        font-weight: 600;
+      }
+      h1 {
+        font-size: 36px;
+        letter-spacing: -1px;
+        margin: 12px 0;
+      }
+      p {
+        line-height: 1.6;
+        color: #475569;
+        max-width: 760px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1.6fr 1fr;
+        gap: 24px;
+        margin-top: 28px;
+      }
+      .panel {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 24px;
+      }
+      h2 {
+        font-size: 18px;
+        margin: 0 0 20px;
+      }
+      .flow {
+        display: grid;
+        gap: 12px;
+      }
+      .node {
+        padding: 16px;
+        border-left: 4px solid #94a3b8;
+        background: #f8fafc;
+      }
+      .node strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+      .node span {
+        font-size: 13px;
+        color: #475569;
+      }
+      .node[data-state="good"] {
+        border-color: #15803d;
+        background: #f0fdf4;
+      }
+      .node[data-state="blocked"] {
+        border-color: #b91c1c;
+        background: #fef2f2;
+      }
+      .actions {
+        display: grid;
+        gap: 12px;
+      }
+      button {
+        font: inherit;
+        cursor: pointer;
+        padding: 12px 16px;
+        text-align: left;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        background: white;
+        color: #0f172a;
+      }
+      button.primary {
+        background: #0f766e;
+        color: white;
+        border-color: #0f766e;
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      button:focus-visible,
+      a:focus-visible {
+        outline: 3px solid #0f766e;
+        outline-offset: 3px;
+      }
+      .small {
+        font-size: 12px;
+        color: #64748b;
+      }
+      .evidence {
+        margin-top: 24px;
+      }
+      pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        background: #0f172a;
+        color: #e2e8f0;
+        border-radius: 6px;
+        padding: 18px;
+        font-size: 12px;
+        line-height: 1.7;
+        min-height: 120px;
+      }
+      #status {
+        min-height: 28px;
+        margin-top: 20px;
+        font-weight: 600;
+      }
+      footer {
+        margin: 24px 0;
+        font-size: 12px;
+        color: #64748b;
+      }
+      @media (max-width: 760px) {
+        header,
+        main {
+          padding: 20px;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        h1 {
+          font-size: 28px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>Graceline / Trust</strong
+      ><a id="docs" href="docs">API reference ↗</a>
+    </header>
+    <div class="banner">SIMULATION · Synthetic data · No real messages</div>
+    <main>
+      <p class="small">EVIDENCE-CONTROLLED AUTONOMY</p>
+      <h1>When knowledge changes,<br />agent permissions follow.</h1>
+      <p>
+        Approve a synthetic source and its dependent template. Deliver once.
+        Retire the source, then observe the final gate refuse another send.
+      </p>
+      <div class="grid">
+        <section class="panel">
+          <h2>Evidence dependency</h2>
+          <div class="flow">
+            <div class="node" id="source">
+              <strong>Knowledge source</strong><span>Not loaded</span>
+            </div>
+            <div class="node" id="template">
+              <strong>Dependent template</strong><span>Not created</span>
+            </div>
+            <div class="node" id="gate">
+              <strong>Dispatch gate</strong
+              ><span>Waiting for an approved artifact</span>
+            </div>
+            <div class="node" id="audit">
+              <strong>Audit chain</strong><span>No verification requested</span>
+            </div>
+          </div>
+        </section>
+        <section class="panel">
+          <h2>Run the controlled loop</h2>
+          <div class="actions">
+            <button class="primary" id="load">
+              1. Load synthetic source and run QA
+            </button>
+            <button id="approve" disabled>
+              2. Approve source and template as demo reviewer
+            </button>
+            <button id="send" disabled>
+              3. Run screened simulated outreach
+            </button>
+            <button id="retire" disabled>
+              4. Retire source and retry outreach
+            </button>
+            <button id="verify" disabled>5. Verify audit chain</button>
+          </div>
+          <p class="small">
+            Identity switching is enabled only in demo mode. QA is scripted. The
+            approval button records your explicit demo-review action. This is
+            not production identity verification or legal approval.
+          </p>
+        </section>
+      </div>
+      <div id="status" role="status" aria-live="polite">
+        Ready to load a synthetic scenario.
+      </div>
+      <section class="evidence">
+        <h2>Decision evidence</h2>
+        <pre id="output">No actions yet.</pre>
+      </section>
+      <footer>
+        PostgreSQL + pgvector · Local hash-vector baseline, not semantic
+        embeddings · Mock Layer 2 classifier · Hard rules enforced in code
+      </footer>
+    </main>
+    <script>
+      const base = "/api/v1/trust";
+      document.getElementById("docs").href = "/docs";
+      const state = {};
+      const output = document.getElementById("output");
+      function log(label, result) {
+        if (output.textContent === "No actions yet.") output.textContent = "";
+        output.textContent +=
+          label + "\n" + JSON.stringify(result, null, 2) + "\n\n";
+      }
+      function node(id, text, kind = "good") {
+        const n = document.getElementById(id);
+        n.dataset.state = kind;
+        n.querySelector("span").textContent = text;
+      }
+      async function api(role, path, data) {
+        const auth = await fetch(base + "/auth/demo-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role, principal: "cf" }),
+        });
+        const session = await auth.json();
+        if (!auth.ok) throw Error(session.code || "Demo login unavailable");
+        const res = await fetch(base + path, {
+          method: data === undefined ? "GET" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + session.access_token,
+            "Idempotency-Key": crypto.randomUUID(),
+          },
+          body: data === undefined ? undefined : JSON.stringify(data),
+        });
+        const result = await res.json();
+        if (!res.ok) throw Error(result.code || "Request refused");
+        return result;
+      }
+      async function run(button, action) {
+        button.disabled = true;
+        document.getElementById("status").textContent = "Running checks…";
+        try {
+          await action();
+          document.getElementById("status").textContent =
+            "Action completed. See decision evidence below.";
+        } catch (error) {
+          document.getElementById("status").textContent =
+            "Action stopped: " + error.message;
+          log("Action stopped", { code: error.message });
+          button.disabled = false;
+        }
+      }
+      document.getElementById("load").onclick = function () {
+        run(this, async () => {
+          state.doc = await api("knowledge", "/knowledge/documents", {
+            title: "Synthetic respectful contact SOP",
+            text: "# Respectful collection\n## Scope\nThe synthetic assistant may provide a polite payment reminder and offer a human officer.\n## Escalation\nDisputes and hardship pause proactive collection for review.",
+            source_uri: "synthetic://demo/respectful-contact",
+            source_class: "synthetic",
+            source_version: "demo-v1",
+            source_locator: "Section Respectful collection",
+            review_status: "synthetic",
+            effective_from: "2026-01-01T00:00:00Z",
+            effective_until: "2027-12-31T00:00:00Z",
+            criticality: "critical",
+            access_roles: [
+              "knowledge",
+              "qa",
+              "compliance",
+              "operator",
+              "personal",
+              "manager",
+              "process",
+            ],
+          });
+          await api("qa", "/knowledge/documents/" + state.doc.id + "/qa", {});
+          node("source", "Draft created; independent QA passed");
+          log("Source ready for human approval", state.doc);
+          document.getElementById("approve").disabled = false;
+        });
+      };
+      document.getElementById("approve").onclick = function () {
+        run(this, async () => {
+          await api(
+            "compliance",
+            "/knowledge/documents/" + state.doc.id + "/approve",
+            { note: "Human approves this synthetic demonstration source" },
+          );
+          state.template = await api("knowledge", "/templates", {
+            title: "Respectful reminder",
+            body: "Your {{product_name}} payment of {{amount_due}} was due on {{due_date}}. Reply HUMAN to speak with an officer.",
+            document_ids: [state.doc.id],
+            evidence_weights: { [state.doc.id]: 1 },
+          });
+          await api("qa", "/templates/" + state.template.id + "/qa", {});
+          await api(
+            "compliance",
+            "/templates/" + state.template.id + "/approve",
+            { note: "Human approves this exact synthetic template" },
+          );
+          node("source", "APPROVED · Critical source · Exact version recorded");
+          node("template", "APPROVED · Depends on the source above");
+          log(
+            "Explicit dependency",
+            await api("compliance", "/knowledge/graph"),
+          );
+          document.getElementById("send").disabled = false;
+          document.getElementById("retire").disabled = false;
+          document.getElementById("verify").disabled = false;
+        });
+      };
+      async function outreach() {
+        const c = await api("operator", "/cases", {
+          is_synthetic: true,
+          timezone: "Asia/Jakarta",
+        });
+        return api("operator", "/cases/" + c.id + "/outreach", {
+          template_id: state.template.id,
+        });
+      }
+      document.getElementById("send").onclick = function () {
+        run(this, async () => {
+          const result = await outreach();
+          node(
+            "gate",
+            result.status +
+              (result.reason_codes
+                ? " · " + result.reason_codes.join(", ")
+                : " · Simulated delivery"),
+            result.status === "DELIVERED" ? "good" : "blocked",
+          );
+          log("Full pipeline result", result);
+        });
+      };
+      document.getElementById("retire").onclick = function () {
+        run(this, async () => {
+          const impact = await api(
+            "compliance",
+            "/knowledge/documents/" + state.doc.id + "/retire",
+            { note: "Source withdrawn for this revocation demonstration" },
+          );
+          node("source", "RETIRED · No longer retrievable", "blocked");
+          node("template", "SUSPENDED · Source dependency revoked", "blocked");
+          log("Retirement impact", impact);
+          const result = await outreach();
+          node("gate", result.status + " · No message delivered", "blocked");
+          log("Attempt after retirement", result);
+        });
+      };
+      document.getElementById("verify").onclick = function () {
+        run(this, async () => {
+          const result = await api("compliance", "/audit/verify");
+          node(
+            "audit",
+            (result.valid ? "VALID" : "BROKEN") +
+              " · " +
+              result.checked +
+              " events checked",
+            result.valid ? "good" : "blocked",
+          );
+          log("Tamper-evident audit verification", result);
+          this.disabled = false;
+        });
+      };
+    </script>
+  </body>
+</html>

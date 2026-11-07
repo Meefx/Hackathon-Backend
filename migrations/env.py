@@ -9,7 +9,8 @@ from sqlalchemy.pool import NullPool
 from app.config import get_settings
 
 # Libpq parsing handles percent-encoded URLs and isolated test search_path options.
-parameters = conninfo_to_dict(get_settings().database_url)
+database_url = context.config.attributes.get("database_url") or get_settings().database_url
+parameters = conninfo_to_dict(database_url)
 url = URL.create(
     "postgresql+psycopg",
     username=parameters.pop("user", None),
