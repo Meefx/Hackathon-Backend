@@ -1,6 +1,6 @@
 # CollectFlow API
 
-FastAPI backend for CollectFlow, a lending collections portal. The read-only portfolio provides account search, pagination, dashboard totals, and aging buckets backed by PostgreSQL. All demo names are fictional. Amounts are integer Indonesian rupiah (IDR). The broader Graceline agent workflow remains planned.
+FastAPI backend for CollectFlow, a lending collections portal. The read-only portfolio provides account search, pagination, dashboard totals, and aging buckets backed by PostgreSQL. All demo names are fictional. Amounts are integer Indonesian rupiah (IDR). Collection workflows now have persistent synthetic demo support; live provider acceptance is reported separately.
 
 ## Run with Docker Compose
 
@@ -121,4 +121,88 @@ compose.yaml                      Local PostgreSQL, migration, API, test service
 tests/                            Isolated PostgreSQL and HTTP tests
 ```
 
-Authentication, authorization, write workflows, agent/MCP workflows, and payment integrations remain future work. Use synthetic data for this local demo.
+Remote operator authentication and payment integrations remain future work. Use synthetic data for this local demo.
+
+## Persistent collection demo
+
+The v2 collection API adds manager sessions, durable account runs, immutable knowledge snapshots,
+message drafts, HMAC-bound compliance approvals, simulated dispatch, manual review, and chained
+account audit. The existing portfolio contract remains unchanged. Run Alembic before restarting
+API/worker processes. `python -m app.seed` explicitly provisions the eight fictional accounts,
+synthetic verified recipients, and a `demo-policy-v1` fixture covering dates through 2027-12-31.
+Unseeded/imported accounts remain ineligible until a verified recipient and eligibility are set.
+
+```sh
+uv run alembic upgrade head
+uv run python -m app.seed
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+# In a separate terminal using the same backend environment:
+uv run python -m app.workers.collection
+```
+
+Compose now starts a worker from the same backend image. The API accepts and persists tasks while
+workers are offline. Each worker claims one task at a time using PostgreSQL leases, fencing tokens,
+and session ordering. The default lease is 60 seconds. A worker whose lease expires cannot commit;
+the run becomes `interrupted` and blocks later tasks in that manager session. Recovery only requeues
+an interrupted task with no external admission snapshot or persisted domain side effects. Ambiguous
+Hermes execution requires reconciliation; it is never automatically resubmitted. Cancel requests
+remain requests until the worker/runtime confirms termination. No recovery or resume sends a message.
+
+The demo clock is the actual Asia/Jakarta calendar. Outbound generation and dispatch require an
+eligible case, verified recipient, active policy coverage, local time 08:00–20:00, no review/operator
+hold, and fewer than one simulated message per account/calendar day. Inbound synthetic hardship,
+dispute, and human-request scenarios can open reviews at any time. Resolving `keep_paused` retains an
+operator hold; `request_resume` returns the review result and the independently evaluated resume result.
+
+The task types are `follow_up`, `collector_brief`, and `improvement_review`. Specify `runtime_mode`
+explicitly as `simulated` or `hermes`; there is no automatic fallback. The simulator uses labeled
+`demo_fixture` knowledge and QA. Hermes candidates are quarantined when the live policy classifier is
+unavailable; an agent QA report never grants dispatch approval. Improvement proposals remain advisory.
+WhatsApp, email, and phone adapters return `channel_unavailable` and create no delivery receipts.
+The only dispatch implementation is `simulated_chat`.
+
+New endpoints and request/response schemas are visible in `/docs` and `/openapi.json`. Registry reads
+use `/api/v1/agents` and `/api/v1/integrations`; histories use bounded `{items,total,limit,offset}`
+pages, including `/api/v1/runs/{id}/knowledge` because a run can retrieve several immutable snapshots.
+Submit tasks to `/api/v1/accounts/{id}/runs` with a UUID `idempotency_key` (HTTP 202), then poll
+`/api/v1/runs/{id}` and `/events?after_sequence=0`. Exact retries preserve the original response;
+reusing a key with another payload returns 409. Version-sensitive actions reject stale versions.
+The operator API is a loopback-only synthetic demo and has no remote operator authentication.
+
+## Knowledge service boundary and MCP
+
+`KNOWLEDGE_MODE=demo_fixture` selects the explicit synthetic source. To integrate the friend-owned
+knowledge module in this same backend, set `KNOWLEDGE_MODE=in_process` and
+`KNOWLEDGE_SERVICE_FACTORY=package.module:factory`. The factory must return the `KnowledgeGateway`
+contract in `app/modules/knowledge_context/contracts.py`: bounded `query_approved(request, caller)`
+and `validate_references(references, at, caller)`. Results require approved/effective source versions,
+citation IDs and hashes. Missing/unavailable/invalid required knowledge blocks generation and dispatch.
+This boundary does not implement ingestion, indexing, document publication, or the friend's KM module.
+
+The MCP listener is separate from the local operator REST API. It exposes seven assigned-run tools
+through the maintained MCP SDK Streamable HTTP transport. See
+[Hermes and MCP runbook](docs/integrations/hermes-mcp.md) for the token, expiry, allowed host/origin,
+ngrok, and runtime setup. Bind only the MCP listener to an ngrok tunnel; port 8000 contains local
+operator actions. Configure a distinct `MCP_BEARER_TOKEN` and timezone-aware `MCP_TOKEN_EXPIRES_AT`.
+A principal must own a current run/account/attempt/fence assignment for execution. Exact duplicate
+writes may read the recorded result after their own pause, while changed/stale assignments are denied.
+
+```sh
+uv run uvicorn app.mcp.server:create_app --factory --host 127.0.0.1 --port 8002
+# Or from Compose, after configuring the MCP credential and expiry:
+docker compose --profile mcp up -d --build backend worker mcp
+```
+
+For a host Hermes server reached by a worker container, configure its reachable host binding and
+`HERMES_API_BASE_URL=http://host.docker.internal:<port>`; localhost inside the container is the
+container itself. Provider credentials stay backend-only. Registry output never returns credentials
+or configured URLs. `configured` is separate from live health: an unprobed configured dependency has
+`health=unknown`. MCP fixture/protocol evidence, simulator evidence, actual Hermes evidence, and actual
+knowledge-module evidence must be reported separately.
+
+Every runtime PostgreSQL transaction applies transaction-local `statement_timeout` (10,000ms by
+default) and `lock_timeout` (2,000ms); connection establishment is limited to five seconds. Configure
+`DATABASE_STATEMENT_TIMEOUT_MS` and `DATABASE_LOCK_TIMEOUT_MS` within 1–60,000ms. These settings preserve
+libpq search-path options and reset when the transaction closes. A timed-out sync MCP call waits for
+its bounded database operation and rollback to finish; cancellation never abandons a thread that can
+write later. These are per-statement/dependency bounds, not a total multi-statement transaction deadline.

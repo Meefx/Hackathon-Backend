@@ -6,12 +6,21 @@ from contextlib import contextmanager
 import psycopg
 from psycopg.rows import dict_row
 
-REQUIRED_REVISION = "0001_accounts"
+from app.config import get_settings
+
+REQUIRED_REVISION = "0003_review_holds"
 
 
 @contextmanager
 def connect(database_url: str) -> Iterator[psycopg.Connection]:
+    settings = get_settings()
     with psycopg.connect(database_url, row_factory=dict_row, connect_timeout=5) as connection:
+        # Transaction-local bounds preserve libpq options, including isolated test search_path.
+        connection.execute(
+            "SELECT set_config('statement_timeout', %s, true), "
+            "set_config('lock_timeout', %s, true)",
+            (str(settings.database_statement_timeout_ms), str(settings.database_lock_timeout_ms)),
+        )
         yield connection
 
 

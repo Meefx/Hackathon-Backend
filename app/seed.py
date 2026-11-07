@@ -29,6 +29,16 @@ def seed(today: date | None = None) -> int:
                 (ref, name, f"LN-{ref[3:]}", amount, today - timedelta(days=days), owner),
             )
             inserted += cursor.rowcount
+        connection.execute(
+            "INSERT INTO collection_policies VALUES "
+            "('demo-policy-v1',TRUE,8,20,'2027-12-31',1,'demo_fixture') ON CONFLICT DO NOTHING"
+        )
+        for ref, *_ in samples:
+            connection.execute(
+                "INSERT INTO collection_cases(account_id,recipient_id,"
+                "recipient_verified,eligible) VALUES (%s,%s,TRUE,TRUE) ON CONFLICT DO NOTHING",
+                (ref, "synthetic:" + ref),
+            )
     return inserted
 
 

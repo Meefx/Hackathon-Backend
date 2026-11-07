@@ -1,225 +1,231 @@
-# Backend Agentic Collection Skeleton Implementation Plan
+# Backend Agentic Collection System Implementation Plan
 
-> **For agentic workers** — Gunakan skill `superpowers:executing-plans` untuk menjalankan rencana per tugas. Langkah memakai checkbox. Implementasi fitur dimulai setelah rencana ditinjau.
+> **For agentic workers** — Gunakan superpowers:executing-plans atau superpowers:subagent-driven-development sesuai metode eksekusi yang dipilih user. Jalankan tugas per milestone dengan bukti verifikasi.
 
-**Goal** — Menyediakan backend PostgreSQL untuk portfolio CollectFlow, simulasi collection, percakapan, keputusan compliance, antrean review, audit, dan akses MCP.
+**Goal** — Menyediakan collection workflow persisten, Hermes bridge, MCP HTTP, konsumsi knowledge service teman, dan skeleton channel di atas PostgreSQL existing.
 
-**Architecture** — REST dan MCP menjadi adapter menuju service domain yang sama. Service menegakkan aturan dan memiliki transaksi PostgreSQL. Simulator lokal menghasilkan alur demo yang dapat diuji sebelum integrasi Hermes.
+**Architecture** — REST dan MCP memakai service domain yang sama. Worker dari kode/image backend mengerjakan job PostgreSQL dengan lease dan checkpoint. Hermes menghasilkan reasoning/candidate, sedangkan compliance, review, serta dispatch dimiliki service backend.
 
-**Tech Stack** — Python 3.12+, FastAPI, Pydantic, uv, psycopg, PostgreSQL, Alembic dengan SQLAlchemy untuk migration, pytest, Ruff, dan Docker Compose. SDK MCP ditambahkan pada tugas MCP.
+**Tech Stack** — Python 3.12+, FastAPI, Pydantic, psycopg, PostgreSQL 17, Alembic, uv, pytest, Ruff, Docker Compose. HTTP client runtime dan maintained Python MCP SDK ditambahkan bersama kebutuhan yang diuji.
 
-**Spec** — Brief dan kontrak dalam dokumen ini menjadi spesifikasi skeleton yang ikut repository. Baca `AGENTS.md` dan `README.md`. Bila workspace lengkap tersedia, `../00_Product_Overview.md` menjelaskan arah produk. Rencana frontend berada di repository `Hackathon-Frontend` pada path dokumen yang sama.
+**Spec** — Brief, kontrak v2, dan acceptance di dokumen ini dapat dipakai saat repo di-clone sendiri. Baca AGENTS.md dan README.md. Rencana frontend berada pada path docs/superpowers/plans/2026-11-07-agentic-collection-skeleton.md di repo frontend. Master workspace bernama 2026-11-07-agentic-collection-system-plan.md.
 
-## Brief
+## Status yang diperiksa
 
-Operator memilih account dan memberi instruksi kepada manager. Backend menjalankan simulasi manager, knowledge, collection, dan QA dengan langkah yang tercatat. Operator dapat membaca draft, keputusan compliance, percakapan, dan audit, lalu meminta pengiriman simulasi. Hardship, dispute, dan human request memindahkan kasus ke review manusia dan menghentikan contact otomatis.
+Fondasi PostgreSQL, Alembic baseline 0001_accounts, Compose, seed/import, portfolio, dan dashboard sudah diimplementasikan. Turn sebelumnya memverifikasi 27 tests PostgreSQL, migration, Compose, HTTP, serta volume persistence. Pada penyusunan rencana v2 ini hanya dilakukan inspeksi read-only.
 
-Registry memperlihatkan enam role, yaitu `manager`, `collection`, `knowledge`, `qa`, `improvement`, dan `copilot`. Simulator memakai empat role pertama. Dua role lainnya ditampilkan sebagai belum tersedia. Setiap respons menyatakan mode runtime aktual. Hermes menjadi milestone integrasi tersendiri setelah MCP berfungsi.
-
-Portfolio dan dashboard existing tetap berfungsi. Nama aplikasi tetap CollectFlow. Data borrower sintetis dan channel yang tersedia adalah `simulated_chat`. UI/frontend hanya mengonsumsi REST. Agent mengakses service yang sama melalui MCP.
-
-## Status dan urutan kerja
-
-| Bagian | Status | Pemilik |
-| --- | --- | --- |
-| Fondasi PostgreSQL, Compose, migration baseline, import data lama | Selesai dan terverifikasi, 27 test PostgreSQL lulus, Compose serta host startup lulus | Backend database |
-| Schema collection dan service domain | Direncanakan | Backend |
-| REST collection | Direncanakan | Backend |
-| MCP lokal dan koneksi Hermes | Direncanakan | Backend/integrasi agent |
-| Layar agent dan collection | Lihat rencana frontend | Frontend |
-
-Urutan dependency adalah fondasi database → schema collection → service dan REST → MCP → verifikasi lintas-repo. Fitur UI dapat dikerjakan dari kontrak usulan setelah backend menyepakati schema, kemudian diverifikasi terhadap OpenAPI aktual.
+Fitur di bawah seluruhnya target implementasi. Hermes belum ditemukan pada lingkungan inspeksi. Modul KM teman belum berada di source yang diperiksa. Nama aplikasi tetap CollectFlow.
 
 ## Global Constraints
 
-- PostgreSQL menjadi database runtime sesuai keputusan user. SQLite lama hanya menjadi sumber import.
-- Pertahankan field account, enum aging `current|early|late|critical`, pagination `{items,total,limit,offset}`, limit 1–100, offset nonnegatif, dan urutan account `due_date,id`.
-- Dashboard menghitung seluruh portfolio. Nominal berupa integer Rupiah nonnegatif. Due date berupa tanggal kalender. Aging dihitung di backend dengan `Asia/Jakarta`.
-- Event memakai timestamp UTC timezone-aware. Clock dapat diinjeksi agar pengujian batas waktu deterministik.
-- Backend memeriksa eligibility, waktu contact, verified recipient, guardrail, dan dispatch gate sebelum generation serta saat dispatch. Data policy wajib yang hilang memblokir operasi.
-- Case handling state terpisah dari aging. Hardship, dispute, dan human request membuat review dan pause contact secara atomik.
-- REST dan MCP memakai izin server, transaksi, dan idempotency service yang sama. Role atau `approved=true` dari payload tidak memberi izin.
-- Demo memakai loopback, borrower sintetis, dan channel simulasi. Secret berada pada environment backend. Log hanya memuat ID, correlation ID, hasil, dan durasi yang aman.
-- Migration memiliki DDL. Seed eksplisit dan idempotent. Data lama dipertahankan melalui import tervalidasi, lalu schema berikutnya memakai migration Alembic.
-- `main.py` merangkai aplikasi. Fondasi database memindahkan query accounts ke repository dan aging ke service, memperbarui seluruh consumer, lalu menghapus `app/store.py`.
+- Pertahankan GET portfolio/dashboard, field account, status aging, integer Rupiah, search/filter sebelum pagination, total seluruh portfolio, dan urutan due_date,id.
+- Aging memakai kalender Asia/Jakarta. Event disimpan TIMESTAMPTZ UTC. Clock diinjeksikan untuk test.
+- Demo memakai borrower sintetis dan simulated_chat. WhatsApp/email/phone menyediakan skeleton unavailable yang dapat diuji.
+- Izin berasal dari server context. Profile/model output, role argument, dan approved=true dari model tidak memberi kewenangan.
+- REST dan MCP memakai service, transaksi, idempotency, dan guard yang sama. Domain tidak mengimpor transport/SDK.
+- Setiap schema change memakai revision setelah baseline. Satu pemilik migration menjaga satu head dan memperbarui REQUIRED_REVISION.
+- Transaksi dan row lock bersifat singkat. Panggilan model/runtime/classifier/channel berjalan di luar transaksi database.
+- Required policy/knowledge/gate yang gagal memblokir outbound. Inbound escalation tetap diterima di luar jam contact.
+- Secret melalui Settings/env backend. Return/log hanya data yang dibutuhkan, ID, correlation, safe outcome, dan durasi.
+- Scope pertama local demo. Shared/remote deployment memerlukan desain autentikasi operator/tenant tersendiri.
+- KM ingestion, indexing, document storage, dan publication dimiliki teman user. Adapter kita memanggil public service dalam proses backend yang sama.
 
 ## Review Focus
 
-1. Import database lama menjaga seluruh ID, balance, due date, ownership, dan constraint. Tugas B0 menguji preservation dan rollback.
-2. Retry dan dua dispatch bersamaan menghasilkan satu pengiriman simulasi. Tugas B2 menguji key sama, key berbeda, dan konflik payload.
-3. Account, policy, isi draft, atau approval berubah setelah generation. Tugas B2 menguji revalidasi dan expiry.
-4. Database gagal di tengah escalation atau dispatch. Tugas B2 menguji rollback case, review, message, dan audit secara bersama.
-5. Discovery MCP sesuai schema runtime dan izin eksekusi. Tugas B4 menguji handshake, batas hasil, akses ditolak, timeout, dan cancellation.
+1. Migration menjaga portfolio lama dan membatasi defaults case baru sampai recipient/policy eksplisit tersedia. B1 memiliki tests preservation/constraint.
+2. Lease habis, runtime restart, dan respons submission hilang dapat meninggalkan hasil ambigu. B2/B6 menguji reconciliation, fencing, dan exact replay.
+3. Policy, recipient, candidate, atau knowledge approval berubah sebelum dispatch. B3/B4 menguji revalidasi serta rollback.
+4. Dua message/account berbeda dan dua worker berjalan bersamaan. B2/B3 menguji account lock, unique receipt, dan stale worker.
+5. MCP/Hermes dapat mengembalikan hasil schema invalid atau mengklaim role yang berbeda. B5/B6 menguji autentikasi, assignment, provenance, finalization, dan runtime aktual.
 
-## Kontrak lintas-repo
+## Kontrak bersama versi 2
 
-Kontrak berikut adalah usulan implementasi. Pydantic dan `/openapi.json` menjadi sumber kontrak setelah tersedia. Perubahan harus diperbarui pada typed client frontend sebelum integrasi.
-
-| Operasi | HTTP dan hasil |
-| --- | --- |
-| Registry agent | `GET /api/v1/agents` → `{items: AgentDefinition[]}` |
-| Memulai simulasi | `POST /api/v1/accounts/{account_id}/runs` → `RunResult` |
-| Membaca run | `GET /api/v1/runs/{run_id}` → `RunResult` |
-| Membaca percakapan | `GET /api/v1/accounts/{account_id}/messages?limit=20&offset=0` → `Page<Message>` |
-| Simulasi inbound | `POST /api/v1/accounts/{account_id}/messages` → `Message` |
-| Simulasi dispatch | `POST /api/v1/messages/{message_id}/simulate-dispatch` → `DispatchResult` |
-| Membaca review | `GET /api/v1/reviews?limit=20&offset=0` → `Page<ReviewItem>` |
-| Membaca audit | `GET /api/v1/accounts/{account_id}/audit?limit=20&offset=0` → `Page<AuditEvent>` |
-| Membaca policy demo | `GET /api/v1/policies/current` → `PolicySnapshot` |
-| Membaca kelayakan contact | `GET /api/v1/accounts/{account_id}/contact-policy` → `PolicyDecision` |
-
-Semua DTO memakai `snake_case`. `Page<T>` memakai `{items,total,limit,offset}`. List baru berurutan `created_at,id` menaik dan memakai limit 1–100 serta offset nonnegatif. Agent registry berurutan menurut enam role pada brief. Write menolak field tak dikenal.
+Kontrak ini adalah target implementasi. Pydantic dan OpenAPI backend menjadi kontrak HTTP yang dijalankan. Kontrak MCP diuji melalui discovery SDK. Endpoint portfolio existing mempertahankan field, enum, pagination, urutan, dan satuan uang.
 
 | DTO | Field dan nilai |
 | --- | --- |
-| `AgentDefinition` | `id`, `name`, `role`, `description`, `runtime_mode` (`simulated|live|unavailable`), `connection_status` (`ready|disconnected|unavailable`) |
-| `RunRequest` | `instruction` string 1–2000 karakter setelah trim, `idempotency_key` UUID, `scenario` (`reminder|hardship|dispute|human_request`) |
-| `RunStep` | `id`, `role`, `outcome` (`completed|blocked|failed`), `summary` |
-| `RunResult` | `id`, `account_id`, `runtime_mode`, `status` (`completed|blocked|failed`), `steps: RunStep[]`, `draft_message_id` nullable, `reason_codes: string[]`, `created_at` |
-| `InboundMessageRequest` | `text` string 1–2000 karakter setelah trim, `idempotency_key` UUID, `scenario` dengan enum yang sama seperti run |
-| `Message` | `id`, `account_id`, `run_id` nullable, `channel=simulated_chat`, `direction` (`inbound|outbound`), `text`, `status` (`received|draft|simulated_sent|blocked`), `created_at` |
-| `DispatchRequest` | `idempotency_key` UUID |
-| `DispatchResult` | `message_id`, `status` (`simulated_sent|blocked`), `reason_codes: string[]`, `audit_event_id` |
-| `ReviewItem` | `id`, `account_id`, `run_id` nullable, `reason` (`hardship|dispute|human_request`), `status=open`, `created_at` |
-| `AuditEvent` | `id`, `account_id`, `run_id` nullable, `action`, `outcome`, `reason_codes`, `correlation_id`, `created_at`, `previous_hash` nullable untuk genesis, `event_hash` |
-| `PolicySnapshot` | `id`, `version`, `timezone`, `contact_days: number[]` dengan ISO Senin=1, `contact_start`, `contact_end`, `holiday_coverage_start`, `holiday_coverage_end`, `holidays: string[]`, `max_proactive_contacts_per_local_date`, `approved_templates: {id,text}[]` |
-| `PolicyDecision` | `account_id`, `allowed: boolean`, `reason_codes: string[]`, `policy_version` nullable bila policy hilang, `contact_state` (`active|paused_human_review`), `evaluated_at` |
+| StartRunRequest | instruction string 1–2000 karakter, task_type follow_up/collector_brief/improvement_review, runtime_mode simulated/hermes, idempotency_key UUID, manager_session_id UUID nullable. demo_scenario reminder/hardship/dispute/human_request hanya diterima dalam mode simulated. |
+| RunAccepted | run_id, manager_session_id, status queued, version, created_at. POST berhasil dan replay mengembalikan HTTP 202 serta identitas run yang sama. |
+| RunSnapshot | id, account_id, manager_session_id, status queued/running/completed/blocked/failed/cancelled/interrupted, outcome nullable, requested_runtime_mode, actual_runtime_mode nullable, phase, steps, artifacts, reason_codes, version, session_turn_index, latest_event_seq, created_at, started_at nullable, finished_at nullable, heartbeat_at nullable, cancellation_requested_at nullable, allowed_actions. |
+| RunStep | id, sequence, role, status pending/running/completed/blocked/failed/skipped, summary, evidence_origin backend_verified/runtime_reported/agent_reported, started_at nullable, finished_at nullable. |
+| RunEvent | sequence, run_id, type, safe_summary, evidence_origin, created_at. Sequence monotonik per run. |
+| AgentDefinition | id, role manager/collection/knowledge/qa/improvement/copilot, name, description, configured, available, runtime_mode simulated/hermes/unavailable, capabilities, unavailable_reason nullable, checked_at nullable. |
+| IntegrationStatus | id, kind runtime/knowledge/mcp/guardrail/channel, implemented, configured, health healthy/unavailable/unknown, execution_mode simulated/hermes/in_process/unavailable, capabilities, disabled_reason nullable, checked_at nullable. Seluruh konfigurasi respons sudah disanitasi. |
+| KnowledgeSnapshot | id, run_id, status ready/no_results/unavailable/error, source_mode knowledge_module/demo_fixture, required, retrieved_at, snapshot_hash, sources, reason_code nullable. |
+| KnowledgeSource | document_id, document_version, snippet_id, citation_id, title, excerpt, content_hash, approved_at, effective_from nullable, effective_until nullable, source_uri nullable. |
+| Message | id, account_id, run_id nullable, channel simulated_chat/whatsapp/email/phone, direction inbound/outbound, text, status received/draft/simulated_sent/blocked, version, citation_ids, created_at. |
+| DraftCandidate | run_id, account_id, execution_attempt_id, template_id nullable, text_with_placeholders, citation_ids, idempotency_key. Backend merender fakta dan membuat message ID. |
+| DispatchRequest | idempotency_key UUID, expected_message_version. Server mengambil approval dan recipient dari state resmi. |
+| DispatchResult | message_id, status simulated_sent/blocked/unavailable, reason_codes, audit_event_id. |
+| ReviewItem | id, account_id, run_id nullable, reason hardship/dispute/human_request/operator_takeover, status open/resolved, version, created_at, resolved_at nullable. |
+| ReviewResolution | decision keep_paused/request_resume, note 1–1000 karakter, expected_version, idempotency_key. Hasil berasal dari service backend. |
+| PolicyDecision | account_id, case_version, allowed, reason_codes, policy_version nullable, contact_state active/paused_human_review/paused_operator, evaluated_at. |
+| ManagerSession | id, account_id, title, created_at, updated_at, last_run_id nullable. |
+| ManagerTurn | id, session_id, turn_index, run_id nullable, role operator/manager, content, created_at. Content berisi instruksi atau ringkasan final yang aman. |
+| RunArtifact | id, run_id, kind draft/qa_report/collector_brief/improvement_proposal, text, message_id nullable, citation_ids, review_state pending/approved/rejected nullable, created_at. QA/proposal merupakan advisory evidence. |
+| FinalRuntimeResult | application_run_id, task_type, summary, artifact_ids, candidate_message_id nullable, citation_ids, review_requested boolean. Semua reference diverifikasi ke data milik run. |
+| KnowledgeQuery | query 1–1000 karakter, purpose collection_draft/qa_check/copilot/improvement_review, locale id-ID, top_k 1–5, deadline_at. Identity/corpus permission berasal dari server context. |
+| ReferenceValidation | valid, checked_at, invalid_citation_ids, reference_version. Semantik snapshot/revocation disepakati dengan pemilik KM. |
+| CaseActionRequest | expected_case_version, idempotency_key, note 1–1000 karakter. Dipakai takeover/resume oleh operator berizin. |
+| CaseActionResult | account_id, case_version, contact_state, action_applied, reason_codes, review_id nullable. |
+| ReviewResolutionResult | review ReviewItem, case CaseActionResult. Penyelesaian review dan hasil permintaan resume dipisahkan. |
+| GuardrailResult | decision allow/block/unavailable, policy_version, evidence_id, classifier_mode live/demo_fixture, evaluated_at. |
+| AuditEvent | id, account_id, run_id nullable, action, actor_kind, outcome, reason_codes, correlation_id, created_at, previous_hash nullable, event_hash. |
 
-Reason code awal adalah `policy_missing`, `holiday_coverage_missing`, `outside_contact_window`, `recipient_unverified`, `case_paused`, `frequency_limit`, `guardrail_rejected`, `approval_expired`, `approval_invalid`, dan `policy_changed`. Frontend menyediakan label Inggris dan fallback aman untuk code baru.
+List biasa memakai items,total,limit,offset dengan limit 1–100. Event polling memakai items,next_sequence,has_more. Tanggal event memakai UTC timezone-aware. Status handling case terpisah dari aging current/early/late/critical. Outcome run dapat berupa draft_created, escalated, brief_created, atau proposal_created.
 
-Business rejection menghasilkan hasil `blocked` yang tercatat. Resource hilang memakai HTTP 404, input invalid memakai 422, key sama dengan payload berbeda memakai 409. Error HTTP baru memakai `detail={code,message,correlation_id}`. Client tetap menerima `detail` string pada error endpoint existing. Request write berhasil dan replay memakai HTTP 200.
+HTTP 404 untuk resource hilang, 422 untuk input invalid, 409 untuk konflik key/payload atau version stale, dan 403 untuk caller yang tidak berizin. Write menolak field tak dikenal. Error baru memakai detail berisi code,message,correlation_id. Client tetap mendukung error detail string pada endpoint portfolio existing.
 
-Idempotency key terikat caller tepercaya, operasi, resource target, dan hash request canonical. Key sama mengembalikan hasil semula. Resource baru atau payload berbeda dengan key sama menghasilkan 409. Dua key berbeda yang mengirim message sama tetap dibatasi unique delivery per message.
+Reason code awal mencakup policy_missing, holiday_coverage_missing, outside_contact_window, recipient_unverified, case_paused, frequency_limit, guardrail_rejected, approval_expired, approval_invalid, policy_changed, guardrail_unavailable, knowledge_unavailable, no_approved_context, knowledge_reference_invalid, runtime_unavailable, runtime_interrupted, result_invalid, channel_unavailable, dan version_conflict. UI menyediakan fallback aman untuk code baru.
 
-Fixture policy demo memakai `Asia/Jakarta`, Senin–Sabtu, `08:00` inklusif hingga `18:00` eksklusif, serta satu proactive contact per account per tanggal lokal. Cakupan kalender fixture adalah 7–8 November 2026 dengan daftar libur kosong. Tanggal di luar cakupan memblokir contact. Clock allowed adalah 7 November 2026 pukul 10:00 Jakarta. Fixture ini dipakai untuk simulasi dan pengujian. Konfigurasi policy produk memerlukan keputusan tersendiri.
+Registry agents/integrations memakai items dengan urutan tetap. History run/session berurutan created_at,id menurun; percakapan/audit menaik. Manager turn berurutan turn_index lalu operator sebelum manager. Default pagination adalah 20. allowed_actions dapat memuat cancel, reconcile, dan retry_safe_step sesuai izin/state. RecoverRunRequest memakai action reconcile/retry_safe_step, expected_version, dan idempotency_key.
 
-## Peta file dan kepemilikan
+Contact state diturunkan dari hold aktif. Open review menghasilkan paused_human_review; jika seluruh review sudah resolved tetapi operator hold masih aktif, state menjadi paused_operator; tanpa hold state menjadi active. Seluruh alasan aktif tetap dicatat walaupun UI menampilkan satu contact_state.
 
-Semua path relatif terhadap root backend.
+## Endpoint target
 
-| Area | File dan tanggung jawab |
+| Operasi | REST |
 | --- | --- |
-| Fondasi database | `app/db/connection.py`, `app/db/import_sqlite.py`, `alembic.ini`, `migrations/env.py`, `migrations/versions/` untuk koneksi, import, dan riwayat schema |
-| Accounts | `app/modules/accounts/service.py`, `repository.py` untuk lookup dan fakta account yang dipakai REST serta MCP |
-| Agent registry | `app/modules/agents/schemas.py`, `service.py`, `router.py` |
-| Run | `app/modules/runs/schemas.py`, `repository.py`, `router.py` dan orkestrasi `app/workflows/collection.py` |
-| Percakapan | `app/modules/conversations/schemas.py`, `service.py`, `repository.py`, `router.py` |
-| Compliance | `app/modules/compliance/schemas.py`, `service.py`, `repository.py`, `router.py`, `demo_policy.py` |
-| Review | `app/modules/reviews/schemas.py`, `service.py`, `repository.py`, `router.py` |
-| Audit | `app/modules/audit/schemas.py`, `service.py`, `repository.py`, `router.py` |
-| Idempotency lintas workflow | `app/shared/idempotency.py`, `app/shared/errors.py`, `app/shared/context.py` untuk caller tepercaya, serta `app/shared/schemas.py` untuk `Page[T]` |
-| Clock lintas domain | `app/shared/clock.py` |
-| Adapter simulator/channel | `app/integrations/agents/simulator.py`, `app/integrations/channels/simulated.py` |
-| MCP | `app/mcp/server.py`, `app/mcp/tools/accounts.py`, `compliance.py`, `conversations.py`, dan `app/mcp/schemas/` sesuai kebutuhan mapping |
+| Registry agent dan dependency | GET /api/v1/agents; GET /api/v1/integrations |
+| Submit tugas account | POST /api/v1/accounts/{account_id}/runs → HTTP 202 RunAccepted |
+| Run snapshot dan history | GET /api/v1/runs/{run_id}; GET /api/v1/accounts/{account_id}/runs |
+| Event dan recovery | GET /api/v1/runs/{run_id}/events?after_sequence=0&limit=100; POST /api/v1/runs/{run_id}/cancel; POST /api/v1/runs/{run_id}/recover |
+| Manager history | GET /api/v1/accounts/{account_id}/manager-sessions; GET /api/v1/manager-sessions/{session_id}/messages |
+| Evidence knowledge | GET /api/v1/runs/{run_id}/knowledge |
+| Percakapan | GET dan POST /api/v1/accounts/{account_id}/messages |
+| Dispatch demo | POST /api/v1/messages/{message_id}/simulate-dispatch |
+| Policy dan eligibility | GET /api/v1/policies/current; GET /api/v1/accounts/{account_id}/contact-policy |
+| Takeover dan resume case | POST /api/v1/accounts/{account_id}/takeover; POST /api/v1/accounts/{account_id}/resume → CaseActionResult |
+| Review manusia | GET /api/v1/reviews; GET /api/v1/reviews/{review_id}; POST /api/v1/reviews/{review_id}/resolve |
+| Audit | GET /api/v1/accounts/{account_id}/audit |
 
-### Tugas B0 — Selesaikan dan verifikasi fondasi PostgreSQL
+GET history run mendukung request_key UUID yang dibatasi account dan caller. Ini menemukan submission yang responsnya hilang. Cancel/recover memakai idempotency_key dan expected_version. Recovery action dipilih dari allowed_actions backend dan ditolak bila execution masih ambigu. Manager session hanya dapat dipakai pada account dan caller yang memilikinya. Simulasi inbound memakai text, idempotency_key, serta demo_scenario yang eksplisit.
 
-**Pemilik** — Backend database. Pekerjaan ini dijalankan terpisah dari fitur skeleton.
+## Interface service dan kepemilikan
 
-**File** — `pyproject.toml`, `uv.lock`, `app/config.py`, `app/seed.py`, `app/main.py`, `app/modules/accounts/repository.py`, `app/modules/accounts/service.py`, `app/modules/dashboard/service.py`, `app/db/connection.py`, `app/db/import_sqlite.py`, `alembic.ini`, `migrations/env.py`, revision baseline di `migrations/versions/`, `compose.yaml`, `Dockerfile`, `.env.example`, `.github/workflows/checks.yml`, `README.md`, `AGENTS.md`, `tests/conftest.py`, `tests/test_store.py`, `tests/test_api.py`, `tests/test_import_sqlite.py`, `tests/test_database_config.py`. Hapus `app/store.py` setelah seluruh consumer berpindah.
+| Area | Pemilik dan file yang dituju |
+| --- | --- |
+| Account facts | app/modules/accounts/service.py dan repository.py existing |
+| Handling state/recipient | app/modules/cases/schemas.py, service.py, repository.py |
+| Run/session/history | app/modules/runs/schemas.py, service.py, repository.py, router.py; app/modules/manager/ untuk session/turn |
+| Orkestrasi dan worker | app/workflows/collection.py; app/workers/collection.py |
+| Conversations | app/modules/conversations/ dengan schemas/service/repository/router |
+| Policy/guardrail | app/modules/compliance/ dan app/integrations/guardrail/ |
+| Knowledge consumption | app/modules/knowledge_context/contracts.py, service.py, repository.py; app/integrations/knowledge/gateway.py |
+| Review dan audit | app/modules/reviews/ dan app/modules/audit/ |
+| Registry integration/channel | app/modules/integrations/; app/integrations/channels/ |
+| Runtime | app/integrations/hermes/client.py, runtime.py, schemas.py; app/integrations/agents/simulated.py |
+| MCP HTTP | app/mcp/server.py, auth.py, schemas/, tools/accounts.py, knowledge.py, conversations.py, reviews.py |
+| Shared yang benar-benar lintas domain | app/shared/clock.py, errors.py, caller.py, idempotency.py |
 
-**Interface** — Konfigurasi runtime memakai `DATABASE_URL`. Host lokal memakai PostgreSQL port 5432. Compose menyediakan `postgres`, `migrate` one-shot, dan `backend`. Service `postgres-test` pada profile test memakai port host 5433. Psycopg menjadi driver runtime. Alembic memakai SQLAlchemy untuk migration.
+Buat file hanya ketika tanggung jawabnya diperlukan. Router memetakan domain error. Repository menerima connection milik transaksi use case. App factory merangkai lifecycle dan router.
 
-- [x] Tambahkan dependency dan lockfile, migration baseline accounts, serta readiness check tanpa DDL startup. Pertahankan seluruh kontrak endpoint existing.
-- [x] Sediakan Compose dengan healthcheck PostgreSQL, migration sebelum backend, volume data, dan binding port loopback. Pisahkan database test dari database demo.
-- [x] Implementasikan `uv run python -m app.db.import_sqlite <path>` untuk membaca sumber SQLite secara read-only dan memvalidasi seluruh record sebelum commit satu transaksi PostgreSQL. Konflik data harus abort dengan pesan aman. Jalankan ulang secara idempotent tanpa menimpa data yang berbeda.
-- [x] Uji baseline kosong, seed dua kali, import preservation, source tidak berubah, invalid row, konflik destination, rollback, constraint, aging, search, pagination, dan summary existing pada PostgreSQL sementara.
-- [x] Verifikasi jalur Compose melalui `docker compose up --build -d --wait`, `docker compose ps -a`, `docker compose exec backend uv run --no-sync python -m app.seed`, dan HTTP health/accounts/dashboard. Jalankan seed dua kali dan pastikan tetap delapan account.
-- [x] Verifikasi jalur host melalui `uv sync --locked`, `uv run alembic upgrade head`, dan `uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000` dengan `DATABASE_URL` mengarah ke PostgreSQL demo. Jalankan suite dengan database test sesuai README aktual.
-- [x] Catat hasil `uv run pytest` dan `uv run ruff check .`, status Docker/HTTP, serta keterbatasan tooling sebelum menandai fondasi selesai.
+Interface utama yang diekspor adalah start_run(account_id, request, caller, clock) -> RunAccepted; get_run(run_id, caller) -> RunSnapshot; receive_message(account_id, request, caller, clock) -> Message; submit_draft(candidate, caller, clock) -> Message; simulate_dispatch(message_id, request, caller, clock) -> DispatchResult; resolve_review(review_id, request, caller, clock) -> ReviewResolutionResult; takeover_case(account_id, request, caller, clock) -> CaseActionResult; request_resume(account_id, request, caller, clock) -> CaseActionResult. Service case mengekspor evaluate_contact_policy dan service audit mengekspor append_event dalam transaksi use case.
 
-**Bukti verifikasi fondasi** — Agent database melaporkan `uv sync --locked`, `uv run ruff check .`, `uv run alembic heads`, dan `docker compose config --quiet` lulus. Root agent mengulang suite terakhir secara independen dan mendapat 27 passed, 0 skipped, serta satu warning deprecation Starlette/httpx existing. Root juga memverifikasi Ruff, sync lockfile, status Compose, dan HTTP portfolio.
+## B0 — Fondasi PostgreSQL yang sudah tersedia
 
-Compose `up --build -d --wait` berhasil, PostgreSQL/backend healthy, dan migrate exit 0. Seed container menghasilkan delapan row pada run pertama dan nol row baru pada run kedua. HTTP `/health`, `/ready`, search, pagination, detail, 404, 422, serta dashboard dengan total Rp21.500.000 lulus. Full JSON delapan account tetap sama setelah container PostgreSQL direkreasi dengan named volume yang sama.
+- [x] PostgreSQL runtime, Alembic baseline, Docker Compose database/migrate/backend.
+- [x] Seed idempotent, source-preserving legacy importer, constraints, aging, API compatibility.
+- [x] Verifikasi turn implementasi sebelumnya mencatat 27 tests lulus, Ruff lulus, HTTP healthy, seed 8 lalu 0, dan account JSON bertahan setelah container database direkreasi.
 
-Jalur host `uv run alembic upgrade head/current` dan Uvicorn juga diverifikasi memakai PostgreSQL Compose. Smoke Uvicorn memakai port sementara 8001 dan prosesnya dihentikan setelah pemeriksaan. Port normal README tetap 8000. Database SQLite developer lama tidak ditemukan, sehingga import diverifikasi memakai fixture dengan pemeriksaan byte sumber. Data portfolio lama milik developer belum diimpor.
+## B1 — Kunci kontrak dan tambah collection schema
 
-Perintah suite yang diverifikasi adalah berikut.
+**Pemilik** — Subagent backend domain, root untuk kontrak, pemilik KM untuk persetujuan interface. **File** — app/modules/*/schemas.py sesuai peta; migrations/versions/0002_collection_state.py; app/db/connection.py; app/seed.py; tests/migrations/test_collection_state.py.
 
-```sh
-docker compose --profile test up -d --wait postgres-test
-TEST_DATABASE_URL=postgresql://collectflow_test:local-test-password@127.0.0.1:5433/collectflow_test uv run pytest -q
-```
+- [ ] Finalisasi DTO/endpoints v2 bersama frontend. Pisahkan run submission, persisted manager turn, execution status, dan dispatch.
+- [ ] Sepakati public KnowledgeGateway dan validator references dengan teman. Simpan adapter boundary milik kita agar file implementation KM tetap dimiliki teman.
+- [ ] Tulis tests baseline berisi delapan account -> head yang menjaga semua field lama, foreign key, unique idempotency, unique receipt/message, state handling, dan urutan event.
+- [ ] Tambahkan case/verified recipient, policy version, manager sessions/turns, runs/steps/events/jobs/leases, draft/approval, messages, reviews, knowledge evidence, dispatch intent/receipt, dan audit. TIMESTAMPTZ untuk event; BIGINT untuk uang.
+- [ ] Update REQUIRED_REVISION dan explicit synthetic seed. Case existing belum eligible sampai policy/recipient tersedia. Policy fixture menunjukkan coverage dan demo clock yang dipakai.
+- [ ] Jalankan tests migration, existing HTTP/store tests, dan Ruff. Expected account preservation dan satu migration head lulus.
 
-Semua perintah pytest pada tugas berikut memakai `TEST_DATABASE_URL` yang sama atau PostgreSQL test terisolasi sesuai README. Database demo tetap terpisah.
+## B2 — Run persisten dan worker yang dapat dipulihkan
 
-### Tugas B1 — Tambahkan schema collection dan kontrak Pydantic
+**Pemilik** — Backend domain. **File** — runs dan manager modules; app/workers/collection.py; app/workflows/collection.py; compose.yaml; tests/integration/test_run_lifecycle.py, test_worker_recovery.py.
 
-**Pemilik** — Backend. Bergantung pada B0.
+- [ ] Tulis tests POST202, exact replay, key/payload conflict, manager session/account binding, version monotonic, event pagination, dan lookup request_key.
+- [ ] Persist input/config snapshot yang aman serta job dalam satu transaksi. Simpan secret credential sebagai reference identity, bukan token dalam snapshot.
+- [ ] Nomori run per manager session berdasarkan admission. Maksimal satu run running per session; run berikutnya queued sampai run sebelumnya terminal dan outcome diketahui. History dibentuk saat run mulai, berurutan turn_index dan hanya memakai hasil tervalidasi run sebelumnya. Run interrupted menahan kelanjutan session sampai rekonsiliasi selesai. Uji dua submit bersamaan dan pastikan history final pertama masuk ke task kedua.
+- [ ] Implementasikan claim PostgreSQL dengan lease, heartbeat, fencing token, serta checkpoint. Worker lama ditolak ketika mencoba commit setelah fence diganti. Model/network calls berlangsung di luar transaksi.
+- [ ] Terapkan queued/running/terminal states, cooperative cancellation, dan recover action dari backend. Runtime unknown dipetakan ke interrupted dengan reason dan dispatch tertahan.
+- [ ] Uji restart sebelum submission, sesudah admission, sesudah candidate ditulis, serta sebelum receipt tersimpan. Replay exact payload/key hanya ketika runtime capability dan retention membenarkannya. Ambiguous execution tidak membuat admission baru secara otomatis.
+- [ ] Tambahkan worker service dari image backend yang sama. Definisikan bounded concurrency, deadline, dan shutdown cleanup pada Settings. API menerima tugas saat worker offline dan menampilkan antrean persisten.
+- [ ] Jalankan lifecycle/concurrency tests pada schema PostgreSQL terisolasi. Expected dua worker tidak menggandakan efek dan browser dapat melanjutkan run melalui ID.
 
-**File** — Tambah `migrations/versions/0002_add_collection_skeleton.py`, schemas pada modul di peta file, `app/shared/schemas.py`, `app/db/connection.py`, `app/seed.py`, `tests/migrations/test_collection_schema.py`, dan `tests/unit/modules/test_contracts.py`. Sesuaikan parent revision dengan baseline aktual.
+## B3 — Workflow simulator, compliance, review, dan audit
 
-**Interface** — DTO mengikuti tabel kontrak. PostgreSQL menyimpan account contact state/verified recipient, runs/steps, messages, review items, approval, idempotency, simulated deliveries, dan audit events. Seluruh FK mengarah pada ID account existing.
+**Pemilik** — Backend domain. **File** — cases/conversations/compliance/reviews/audit modules; integrations/agents/simulated.py; integrations/guardrail/; tests/unit/modules/ dan tests/integration/test_collection_workflow.py, test_dispatch_concurrency.py.
 
-- [ ] Tulis test upgrade baseline berisi delapan account ke head. Assert seluruh field lama tetap sama, foreign key aktif, dan unique delivery serta idempotency menolak duplikasi.
-- [ ] Jalankan `uv run pytest tests/migrations/test_collection_schema.py tests/unit/modules/test_contracts.py` dan pastikan gagal karena schema/DTO belum tersedia.
-- [ ] Tambahkan revision terpisah dengan `TIMESTAMPTZ` untuk event dan integer Rupiah. Update `REQUIRED_REVISION` pada `app/db/connection.py` dari `0001_accounts` ke revision collection dan uji readiness pada schema tertinggal serta schema head. Account existing mendapat state awal yang memblokir contact sampai recipient/policy demo disiapkan secara eksplisit.
-- [ ] Tambahkan DTO Pydantic dengan enum, UUID key, panjang string, pagination, dan `extra=forbid` pada write. Lengkapi seed eksplisit untuk recipient sintetis dan contact state tanpa mengubah row account existing.
-- [ ] Jalankan kembali test tugas ini. Expected seluruh preservation, constraint, input invalid, dan schema serialization lulus. Review diff lalu buat commit tugas ini saat implementasi.
+- [ ] Tulis tests allowed reminder, blocked contact, hardship/dispute/human request, dan operator takeover. Escalation di luar contact window tetap membuat review/pause tanpa outbound.
+- [ ] Implementasikan task follow_up, collector_brief, dan improvement_review melalui runtime interface. Simulator mencatat mode simulated serta role/artefak yang benar-benar dijalankan.
+- [ ] Periksa eligibility, local contact time, holiday coverage, verified recipient, pause, dan frequency sebelum outbound generation. Worker mengambil required knowledge snapshot melalui gateway sebelum men-submit outbound task ke runtime; kegagalan menghentikan task sebelum model dipanggil. Knowledge agent dapat meminta tambahan konteks approved. Render fakta uang/identitas dari server, validasi placeholder dan citation.
+- [ ] Validasi candidate dengan deterministic rules dan classifier adapter untuk live-model text. Candidate boleh persisted sebagai draft karantina, tetapi follow_up menjadi blocked dengan guardrail_unavailable ketika classifier wajib belum siap. Artifact menyertakan evidence classifier; approval untuk candidate mode hermes memerlukan classifier_mode live. QA agent report disimpan sebagai input advisory dengan provenance.
+- [ ] Terbitkan HMAC attestation yang terikat content/version, account, recipient, policy version, knowledge references, dan expiry. Rekam approval manusia secara terpisah bila dibutuhkan.
+- [ ] Dispatch mengambil lock account/message, memeriksa ulang state dan approval, serta mencatat simulated receipt/idempotency/audit secara atomik. Dua key untuk message sama dan dua message untuk account sama mengikuti frequency limit.
+- [ ] Simpan hold reason aktif secara terpisah agar beberapa review/manual hold dapat hidup bersamaan. Takeover membuat operator hold/review, membatalkan izin side effect run aktif, dan meminta runtime stop. Uji race terhadap generation/dispatch.
+- [ ] Implementasikan review resolve dengan expected_version. keep_paused menyelesaikan review dan mempertahankan operator hold. request_resume menyelesaikan review lalu memanggil service request_resume yang sama dengan endpoint case resume. Service hanya melepas hold yang diotorisasi setelah semua open review/alasan pause lain dan policy terbaru lolos. Gagal resume tidak membatalkan fakta bahwa review sudah diselesaikan; return ReviewResolutionResult menunjukkan keduanya. Request resume terpisah dapat dipakai setelah keep_paused. Resume tidak langsung mengirim pesan.
+- [ ] Serialisasi append hash chain audit per account. Test tampering pada salinan, append paralel, dan replay tanpa side effect.
+- [ ] Jalankan workflow/gate/review/concurrency tests. Expected stale approval, missing policy, rollback, replay, dan parallel dispatch memberi outcome deterministik.
 
-### Tugas B2 — Implementasikan service dan simulator deterministik
+## B4 — Integrasikan service knowledge teman
 
-**Pemilik** — Backend. Bergantung pada B1.
+**Pemilik** — Subagent integrasi untuk adapter; pemilik KM untuk service internal. **File** — knowledge_context module; app/integrations/knowledge/gateway.py; tests/integration/test_knowledge_contract.py.
 
-**File** — Service/repository pada accounts, runs, conversations, compliance, reviews, audit, `app/workflows/collection.py`, adapter simulator/channel, clock/error/idempotency shared, `app/config.py`, `.env.example`, `tests/unit/modules/test_compliance.py`, `tests/integration/test_collection_workflow.py`, `tests/integration/test_dispatch_concurrency.py`, `tests/unit/modules/test_audit.py`.
+KnowledgeGateway.query_approved(request, caller) -> KnowledgeResult menerima query 1–1000 karakter, purpose collection_draft/qa_check/copilot/improvement_review, locale, top_k 1–5, serta deadline. Identity/corpus permission berasal dari caller backend. Hasil dipetakan ke KnowledgeSnapshot. Gateway.validate_references(references, at, caller) -> ReferenceValidation memeriksa approval/version freshness sebelum dispatch.
 
-**Interface** — `start_demo_run(account_id, request: RunRequest, caller: CallerContext, clock: Clock) -> RunResult`, `receive_demo_message(account_id, request: InboundMessageRequest, caller, clock) -> Message`, `simulate_dispatch(message_id, request: DispatchRequest, caller, clock) -> DispatchResult`, `evaluate_contact_policy(account_id, caller, clock) -> PolicyDecision`. `CallerContext` didefinisikan di `app/shared/context.py` dan clock di `app/shared/clock.py`. `Clock.now() -> datetime` mengembalikan UTC timezone-aware. Context berasal dari server. Service workflow memiliki transaksi. Repository menerima koneksi transaksi yang sama.
+- [ ] Sepakati mapping ke service internal teman dan timeout/cancellation semantics yang didukung. Adapter fixture eksplisit memberi source_mode demo_fixture untuk test.
+- [ ] Tulis contract tests untuk approved/effective snippets, batas ukuran, no_results, unavailable, error/timeout, reference revoked, dan mismatched citation/hash.
+- [ ] Simpan immutable run evidence berisi sumber/versi/snippet/hash yang dipakai. Pin snapshot untuk continued manager turn bila masih valid. Source URI diperlakukan sebagai data dan divalidasi sebelum ditampilkan.
+- [ ] Required knowledge yang gagal memblokir generation/dispatch, sementara inbound escalation dan portfolio tetap tersedia.
+- [ ] Verifikasi adapter terhadap implementation KM teman saat tersedia. Report fixture tests dan real service contract tests secara terpisah.
 
-- [ ] Tulis test policy hilang, coverage libur hilang, Minggu, batas 08:00/18:00, recipient belum verified, case paused, dan frequency limit. Assert blocked tanpa draft/delivery.
-- [ ] Tulis test hardship/dispute/human request yang membuat satu inbound atau run, satu review open, pause case, dan audit. Escalation tetap diterima di luar jendela contact dan tidak membuat outbound contact. Inject failure di tengah transaksi dan assert seluruh write rollback.
-- [ ] Jalankan test di atas dan pastikan gagal karena service belum tersedia.
-- [ ] Implementasikan pemeriksaan service dan bounded simulator empat role. Template demo memakai placeholder fakta, kemudian server merender nominal/recipient dari account terverifikasi. Registry melaporkan availability aktual semua role.
-- [ ] Implementasikan deterministic guardrail dan approval bertanda tangan HMAC yang terikat hash isi, account, recipient, policy version, dan expiry. Konfigurasi secret di backend. Kandidat live-model nanti wajib melewati classifier terkonfigurasi dan fail closed saat classifier gagal.
-- [ ] Implementasikan satu jalur simulated dispatch. Lock state account/message sebelum revalidasi agar frequency limit tetap berlaku pada message berbeda yang bersamaan. Commit delivery, outcome idempotency, dan audit dalam transaksi yang sama.
-- [ ] Tambahkan test key sama/replay, konflik payload, dua key untuk message sama, dua message/account sama, perubahan policy/state/recipient/content, approval invalid/expired, dan rollback dispatch. Assert maksimal satu pengiriman yang diizinkan policy.
-- [ ] Tambahkan hash chain audit per account dengan locking saat append. Uji dua append bersamaan, tampering pada salinan event, dan replay audit yang menjaga jumlah message/delivery.
-- [ ] Jalankan `uv run pytest tests/unit/modules tests/integration`. Expected semua aturan dan concurrency lulus pada PostgreSQL sementara. Review diff lalu buat commit tugas ini saat implementasi.
+## B5 — Bangun MCP Streamable HTTP
 
-### Tugas B3 — Sediakan REST dan publikasikan kontrak ke frontend
+**Pemilik** — Subagent Hermes/MCP. **File** — app/mcp/, app/main.py lifecycle, app/config.py, pyproject.toml/uv.lock, tests/mcp/test_protocol.py, test_permissions.py, test_service_parity.py.
 
-**Pemilik** — Backend, dengan sinkronisasi frontend. Bergantung pada B2.
+Target transport adalah HTTP di /mcp dengan SDK terpelihara. Tool awal adalah get_account, get_contact_policy, get_contact_history, retrieve_approved_context, submit_draft_candidate, submit_run_artifact, dan request_human_review. Read output dibatasi. Tool write memerlukan active run/account assignment serta execution_attempt_id yang diverifikasi service.
 
-**File** — Router modul pada peta file, `app/main.py`, `tests/integration/test_collection_api.py`, `tests/test_api.py`, `README.md`.
+- [ ] Tambahkan SDK dan lockfile. Mount lifecycle/session manager melalui app factory; offload blocking psycopg dari handler async.
+- [ ] Pisahkan token backend->Hermes dan Hermes->MCP. Verifikasi bearer principal, target assignment, active run/fence, Origin yang sesuai, dan izin saat eksekusi.
+- [ ] MCP principal agent boleh membaca konteks, submit candidate, dan request review. Service berwenang menerbitkan approval dan dispatch. Argumen role/approved/tenant/run tidak mengganti identity.
+- [ ] Gunakan SDK client melalui transport nyata untuk initialize/discovery/call, structured result, error schema, invalid input, timeout, cleanup cancellation, akses tanpa token, dan cross-target denial.
+- [ ] Uji parity REST/MCP terhadap gate, recipient, pause, idempotency, dan error. Prompt injection pada knowledge/tool result tidak dapat mengganti izin backend.
+- [ ] Dokumentasikan endpoint, transport, SDK/protocol yang diuji, dan contoh konfigurasi Hermes yang telah diverifikasi. Readiness menampilkan MCP capability aktual.
 
-**Interface** — Endpoint dan error mengikuti tabel kontrak. GET contact policy memakai `evaluate_contact_policy` yang sama dengan dispatch. Semua router memetakan domain error tanpa SQL/stack trace.
+## B6 — Hubungkan Hermes aktual dan profile specialist
 
-- [ ] Tulis test route/DTO, 404, 422, 409, pagination timestamp/ID stabil, extra field ditolak, dan caller role palsu. Tulis test CORS POST hanya untuk origin yang diizinkan.
-- [ ] Jalankan `uv run pytest tests/integration/test_collection_api.py tests/test_api.py` dan pastikan endpoint baru gagal sebelum implementasi.
-- [ ] Daftarkan router, context caller lokal tepercaya, dan CORS `GET,POST` dengan header yang benar-benar dipakai. Return blocked sebagai domain outcome yang tercatat. Pisahkan GET read dari write agar reload aman.
-- [ ] Jalankan kembali test tugas ini dan inspeksi `/openapi.json`. Sinkronkan seluruh DTO, enum, route, dan error dengan `src/features/*/types.ts` serta `api.ts` pada frontend.
-- [ ] Update README dengan kontrak dan demo scenario yang teruji. Review diff lalu buat commit tugas ini saat implementasi.
+**Pemilik** — Subagent Hermes/MCP, root untuk runtime acceptance. **File** — app/integrations/hermes/; runtime interface; Settings/env example; tests/integration/test_hermes_contract.py; versioned configuration examples setelah diverifikasi.
 
-### Tugas B4 — Expose service melalui MCP stdio
+AgentRuntime mengekspor probe(), submit(request,idempotency_key), get_status(external_run_id), dan request_stop(external_run_id). Adapter menyimpan external run/session IDs, actual runtime, safe error code, usage, serta correlation. Interface ini juga dipakai SimulatedAgentRuntime.
 
-**Pemilik** — Backend/integrasi agent. Bergantung pada B3.
+- [ ] Spike versi/build, autentikasi, capabilities, run/status/stop support, profile routing, dan resolved tool inventory pada Hermes yang tersedia.
+- [ ] Gunakan Runs HTTP API yang didukung runtime, polling, serta profile URL/credential yang dikonfigurasi server. Validasi exact request/key replay dan canonical request snapshot.
+- [ ] Uji bounded business run dengan nonempty caller-owned history agar manager menunggu child dan menyatukan hasil. Persist manager history di backend dan batasi konteks per account.
+- [ ] Verifikasi named collection/knowledge/QA/copilot/improvement routes sesuai task. Catat actual profile evidence. Profile/tool inheritance tidak dijadikan batas otorisasi.
+- [ ] submit_run_artifact menerima RunArtifact untuk QA report, collector brief, atau improvement proposal yang sesuai task/run. FinalRuntimeResult merujuk artefak yang sudah persisted; summary dan seluruh ID/citation divalidasi. Validasi final artifact schema dan citation. Hermes turn completed yang belum mempunyai hasil domain valid tetap belum menyelesaikan business run.
+- [ ] Uji malformed output, runtime unavailable, token/profile salah, stop yang belum selesai, expired external replay window, interrupted/unknown, dan reconciliation. Automatic fallback ke simulator tidak dilakukan.
+- [ ] Tambahkan classifier policy sebagai integration dependency tersendiri dengan mode/configuration/health yang aktual. Spike input-output provider/classifier sesuai pilihan overview sebelum mengaktifkan approval live. Uji classifier sehat, unavailable, timeout, dan hasil invalid.
+- [ ] Buktikan follow_up Hermes aktual menghasilkan knowledge/collection/QA delegation dan draft yang lolos classifier live, collector_brief menghasilkan bukti copilot, serta improvement_review menghasilkan bukti improvement. Manager dan seluruh specialist memakai route/profile yang terkonfigurasi. Simpan runtime-backed route/session evidence; role yang hanya diklaim model belum terverifikasi. Satu tindakan tambahan harus ditolak gate. Catat outcome dan runtime/model aktual yang tersedia dari provider.
+- [ ] Bila runtime/credential belum tersedia, adapter/protocol dapat diverifikasi dengan fixture, sementara acceptance Hermes aktual tetap pending.
 
-**File** — `pyproject.toml`, `uv.lock`, `app/mcp/server.py`, tools/schema pada peta file, `tests/mcp/test_protocol.py`, `tests/mcp/test_permissions.py`, `tests/mcp/test_rest_parity.py`, `README.md`.
+Dokumentasi Runs API dan HTTP MCP menjadi referensi spike, dengan detail kompatibilitas ditentukan versi yang dipasang. [Hermes API](https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server) · [Hermes MCP](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp)
 
-**Interface** — Tool `get_account`, `get_approved_sop`, `get_contact_history`, `evaluate_contact_policy`, dan `simulate_dispatch`. Service `get_account(account_id, caller, clock) -> Account` diekspor accounts, `get_current_policy(caller) -> PolicySnapshot` diekspor compliance, dan `get_contact_history(account_id, limit, offset, caller) -> Page[Message]` diekspor conversations. `get_approved_sop` memetakan policy serta approved templates dari service compliance. Tool write memakai `DispatchRequest` dan service B2. Target entry point setelah dibuat adalah `uv run python -m app.mcp.server` melalui stdio lokal.
+## B7 — Skeleton channel, status integrasi, dan pengujian akhir
 
-- [ ] Tambahkan maintained MCP SDK dan lockfile. Tulis SDK-client test initialize, discovery, input/output schema, valid call, unknown account, dan tool error dengan kode stabil.
-- [ ] Tulis test izin read/write, payload role palsu, input berlebih, hasil paginated, timeout, cancellation, serta duplicate dispatch lintas REST dan MCP. Jalankan `uv run pytest tests/mcp` dan pastikan gagal sebelum adapter dibuat.
-- [ ] Implementasikan registry tools dengan structured output dan annotation sesuai perilaku. Adapter memanggil service langsung. I/O psycopg sinkron di-offload dari handler async. Stdout hanya protokol, log stderr aman, cleanup saat cancel/shutdown.
-- [ ] Jalankan `uv run pytest tests/mcp`. Expected handshake, schema runtime, akses ditolak, parity gate, dan idempotency lulus. Catat SDK/transport aktual serta command teruji di README.
-- [ ] Bila Hermes tersedia, verifikasi versi dan format konfigurasi aktual, hubungkan manager, lakukan discovery/read, dan uji allowed serta blocked dispatch. Catat milestone Hermes terpisah bila runtime belum tersedia. Review diff lalu buat commit tugas ini saat implementasi.
+**Pemilik** — Backend domain untuk channel; root untuk integrasi. **File** — app/integrations/channels/contracts.py, simulated.py, whatsapp.py, email.py, phone.py; integrations registry/router; compose.yaml; README.md; tests/integration/test_channel_skeletons.py, test_demo_journey.py.
 
-### Tugas B5 — Verifikasi demo lintas-repo
+ChannelGateway.resolve(channel) mengembalikan adapter dengan capabilities(), dispatch(authorized_intent), dan normalize_verified_event(event). Intent dibentuk service dari account/recipient/message resmi. Provider runtime nyata akan mengimplementasikan receipt/idempotency serta verified webhook boundary pada milestone berikutnya.
 
-**Pemilik** — Backend dan frontend. Bergantung pada B3 dan layar frontend. MCP dinilai melalui B4.
+- [ ] Implementasikan SimulatedChatAdapter dan tiga Unavailable adapter bernama WhatsApp/Email/Phone. Ketiganya mengembalikan channel_unavailable dan tidak membuat delivery receipt.
+- [ ] Registry memisahkan implemented, configured, health, capabilities, checked_at, dan disabled_reason. Credential dan URL yang mengandung secret tidak dikembalikan.
+- [ ] Tulis tests channel unsupported/missing config, no fake success, duplicate intent, dan timeout/ambiguous provider contract. Voice capability phone skeleton tetap unavailable.
+- [ ] Uji full REST journey account->session/run->knowledge->draft->gate->simulated delivery->audit dan escalation->review->explicit resolution. Uji refresh/restart/cancel dan exact retry.
+- [ ] Jalankan uv run pytest, uv run ruff check ., migration heads/current pada database test, MCP protocol suite, serta actual Hermes smoke bila tersedia.
+- [ ] Dokumentasikan development host, Compose backend/worker, topology host/container, migrate/seed/start/stop, status integration, dan recovery. Jalankan smoke browser bersama frontend.
+- [ ] Laporkan bukti portfolio, workflow, KM fixture/actual, MCP, Hermes actual, dan channel skeleton secara terpisah.
 
-**File** — `tests/integration/test_demo_journey.py`, `README.md`, `.env.example` bila konfigurasi berubah.
+## Penerimaan backend
 
-- [ ] Tulis integration test account → run → draft → allowed dispatch → conversation → audit. Replay dispatch dan assert jumlah delivery tetap satu. Tambahkan blocked contact dan hardship → review → paused case.
-- [ ] Jalankan `uv run pytest` dan `uv run ruff check .` dengan PostgreSQL test terpisah. Jalankan `uv run alembic heads` dan pastikan satu head.
-- [ ] Jalankan frontend sesuai rencananya. Verifikasi allowed, blocked, dan hardship melalui UI normal, lalu reload untuk memeriksa persistence. Pastikan portfolio/search/pagination/dashboard lama tetap benar.
-- [ ] Laporkan migration/import, HTTP, MCP handshake, browser flow, dan Hermes berdasarkan hasil aktual masing-masing. Review diff lalu buat commit tugas ini saat implementasi.
+Backend selesai ketika data account existing terpelihara, workflow/review/dispatch/audit persisten, six role tasks tersedia sesuai konfigurasi, knowledge references tervalidasi, MCP HTTP bekerja melalui SDK client, dan actual Hermes menghasilkan artefak melalui bridge. Jalur simulator mempunyai acceptance sendiri. Koneksi KM aktual mengikuti ketersediaan service milik teman.
 
-## Batas penerimaan
-
-Skeleton selesai ketika allowed reminder, blocked contact, dan escalation manusia tersimpan dan dapat dibaca melalui REST/UI, disertai gate deterministik dan audit. MCP selesai ketika pengujian protokol SDK dan parity service lulus. Hermes selesai ketika runtime lokal benar-benar terhubung dan menjalankan operasi teruji.
-
-WhatsApp, email, telepon, voice, rekonsiliasi pembayaran, deployment improvement otomatis, cakupan policy produksi, autentikasi remote/multi-tenant, dan evaluasi produk penuh menjadi milestone berikutnya.
-
-## Verifikasi dokumen
-
-Path source, README, panduan repo, schema existing, dan plan gabungan awal telah dibaca. Dokumen ini memisahkan tanggung jawab backend dan mempertahankan kontrak portfolio. Checkbox fitur masih berupa rencana. Fondasi database sudah diverifikasi melalui PostgreSQL aktual, HTTP, Compose, host startup, migration, import fixture, serta persistence named volume. Seluruh checkbox B1–B5 masih berupa rencana. Penyusunan dokumen ini memeriksa konsistensi path dan kontrak tanpa mengimplementasikan fitur agent/UI.
+Scope lanjutan mencakup provider outbound nyata, live voice, payment reconciliation, remote multi-tenant auth, serta penerapan proposal improvement. Dokumen ini diperbarui pada tahap rencana; source aplikasi dan dependency tetap pada baseline yang diinspeksi.
