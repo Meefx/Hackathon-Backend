@@ -7,7 +7,7 @@ FastAPI backend for CollectFlow, a lending collections portal. This bootstrap pr
 Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ```sh
-git clone git@github.com:Meefx/Hackathon-Backend.git
+git clone https://github.com/Meefx/Hackathon-Backend.git
 cd Hackathon-Backend
 cp .env.example .env
 uv sync
