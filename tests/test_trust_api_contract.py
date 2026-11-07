@@ -27,9 +27,15 @@ def test_versioned_routes_run_complete_evidence_revocation_loop(trust_dsn, trust
         assert result["audit"]["valid"] is True
         specification = client.get("/openapi.json").json()
         assert all(path.startswith("/api/v1/trust/") for path in specification["paths"])
-        for path in specification["paths"].values():
+        for name, path in specification["paths"].items():
             for operation in path.values():
-                assert operation["responses"]["200"]["content"]["application/json"]["schema"]
+                content = operation["responses"]["200"]["content"]
+                if name == "/api/v1/trust/knowledge/sources/{source_id}/download":
+                    assert content == {
+                        "application/pdf": {"schema": {"type": "string", "format": "binary"}}
+                    }
+                else:
+                    assert content["application/json"]["schema"]
 
 
 def test_main_registers_only_versioned_trust_routes(monkeypatch, trust_dsn):

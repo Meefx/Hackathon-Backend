@@ -9,6 +9,26 @@ from psycopg.conninfo import conninfo_to_dict
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Curated public-source downloader policy. Documents cannot extend this allowlist.
+SOURCE_DOWNLOAD_HOSTS = frozenset(
+    {
+        "ojk.go.id",
+        "www.ojk.go.id",
+        "peraturan.go.id",
+        "www.peraturan.go.id",
+        "peraturan.bpk.go.id",
+        "jdih.kemenkeu.go.id",
+        "jdih.komdigi.go.id",
+        "mkri.id",
+        "www.mkri.id",
+        "s.mkri.id",
+        "kemenkopmk.go.id",
+        "www.kemenkopmk.go.id",
+        "lenteradana.co.id",
+        "www.lenteradana.co.id",
+    }
+)
+
 
 @dataclass(frozen=True)
 class TrustSettings:

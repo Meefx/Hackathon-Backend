@@ -284,7 +284,7 @@ recipient sintetis serta policy fixture secara eksplisit.
 Koneksi runtime memakai psycopg melalui Settings
 `DATABASE_URL`. Startup dan seed tidak membuat atau memperbarui schema.
 `/health` memeriksa liveness, sedangkan `/ready` memeriksa koneksi dan revision
-schema. Revision `0002_trust` menambahkan KMS, runtime simulasi dan audit; startup trust juga memeriksa kesiapan. Perbarui `REQUIRED_REVISION` di `app/db/connection.py` saat head berubah.
+schema. Revision `0002_trust` menambahkan KMS, runtime simulasi dan audit; `0003_source_archive` menambahkan arsip sumber publik immutable dan provenance kutipan. Startup trust juga memeriksa kesiapan. Perbarui `REQUIRED_REVISION` di `app/db/connection.py` saat head berubah.
 
 Jalankan migration eksplisit sebelum API dan seed. Compose memakai service
 `migrate` one-shot setelah PostgreSQL sehat dan sebelum backend dimulai.

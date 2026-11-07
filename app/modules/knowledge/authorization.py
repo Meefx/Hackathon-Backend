@@ -25,6 +25,8 @@ _ROLES = frozenset(
     }
 )
 _CAPABILITIES = {
+    "source:read": {"knowledge", "qa", "compliance", "admin"},
+    "source:download": {"knowledge", "qa", "compliance", "admin"},
     "knowledge:ingest": {"knowledge", "admin"},
     "knowledge:read": _ROLES,
     "knowledge:qa": {"qa"},

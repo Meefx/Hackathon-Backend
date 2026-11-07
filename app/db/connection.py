@@ -10,7 +10,7 @@ from psycopg_pool import ConnectionPool
 
 from app.config import get_settings
 
-REQUIRED_REVISION = "0008_whatsapp_collection"
+REQUIRED_REVISION = "0009_collection_source_merge"
 
 
 @contextmanager
@@ -39,6 +39,7 @@ def check_ready(database_url: str) -> bool:
         connection.execute("SELECT seq, hash, prev_hash FROM trust.audit_events LIMIT 0")
         connection.execute("SELECT embedding::public.vector FROM trust.knowledge_chunks LIMIT 0")
         connection.execute("SELECT status, policy_version FROM trust.attempts LIMIT 0")
+        connection.execute("SELECT artifact_sha256 FROM trust.source_records LIMIT 0")
         return version is not None and version["version_num"] == REQUIRED_REVISION
 
 
