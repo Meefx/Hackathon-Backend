@@ -11,7 +11,9 @@ external-channel integration is included.
 - `app/trust`: evidence lifecycle, deterministic guardrails, screening and data processing.
 - `app/services/dispatch_gate.py`: only module permitted to import simulated channels.
 - `app/config.py` and `app/db/connection.py`: shared configuration/connections.
-- Alembic `0001_accounts -> 0002_trust`: shared schema history, pgvector required.
+- Alembic `0001_accounts -> 0002_trust -> 0003_source_archive`: shared schema history, pgvector required.
+- `app/modules/knowledge_sources`: curator CLI, immutable source archive and scoped reviewer API.
+- `app/policies/corpus`: 15 pinned public sources with article/section and amendment provenance.
 
 ## Team integration contracts
 
@@ -48,6 +50,20 @@ is accepted as a fallback but must also end `_test`. Do not use the demo databas
 - Existing trust primitives still combine domain logic and SQL. Further extraction into
   repositories is gradual; do not duplicate or replace the gate during extraction.
 - No live model, MCP transport, full agents, original 50 personas or browser E2E claim.
-- Docker/CI execution and production identity/retention/restore remain unverified here.
+- Local backup restore was verified before the source migration; production restore,
+  Docker/CI execution, production identity and retention remain unverified.
+
+## Regulatory corpus handoff
+
+Run the README ingestion CLI against the migrated database. All staged legal excerpts
+are draft/review-required, never automatically approved. Original PDF and extraction
+hashes are distinct. Reviewer downloads include `X-Content-SHA256`; borrower-facing
+agents cannot access archives. Do not grant an agent a generic fetch/download tool.
+
+Resolve source context, amendments, lender applicability and extraction defects before
+publishing a separately reviewed version through the existing KMS QA/human workflow.
+The source register records corrections to the Gemini research. No research claim
+relaxes a hard guardrail. Retain the original Indonesian legal text; English summaries
+are separately reviewed derivatives, not authoritative translations.
 
 See `09_Implementation_Report.md` for the checks actually run on the final branch.

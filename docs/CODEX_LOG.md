@@ -28,3 +28,26 @@ Exact command summaries and limitations are in 09_Implementation_Report.md.
   `17 passed, 1 warning in 8.94s`. Ruff and mypy (40 source files) passed.
 - Fresh migrated CLI demo: source retired, template suspended, second send denied,
   duplicate reuses attempt, audit valid with 18 events checked. Old demo DB preserved.
+
+## Public-source corpus and archive
+
+- Pulled main twice; already up to date. Kept `erwan-kms-guardrails-security` and left
+  commit/push to Erwan.
+- Parallel source curation: collection regulations/amendments, privacy/court/calendar
+  sources. Verified official PDF bytes, physical pages, source hashes and date conflicts.
+- Parallel engineering: bounded downloader/extractor, reviewer HTTP API and contracts,
+  real-database archive/migration tests. Parent integrated persistence, CLI and evidence.
+- Parsed the user-supplied Gemini research as untrusted leads. Recorded outdated bases,
+  incorrect generalisations and unsupported API/technology mandates in the source register.
+- Backed up the existing migrated demo, restored a temporary copy and compared all
+  13 existing tables before applying the source migration.
+- Ingested 15 originals / 788 pages. Initial run: 25 scoped records, 96 draft excerpts,
+  five quarantine mappings, zero automatic approvals. Subsequent context corrections
+  are append-only snapshots, not edits to history or silent activation.
+- Verified all original downloads through authenticated API and current audit integrity.
+  Added scanned-source fallback and corpus-boundary regressions after review.
+- Initial complete suite: `486 passed, 1 warning in 84.60s`; final expanded-suite
+  result and remaining limitations are recorded in the implementation report.
+- Expanded full suite: `533 passed, 1 warning in 74.68s`; final manifest suite:
+  `25 passed in 0.27s`. Ruff/mypy passed. Corrected source snapshots reimported;
+  audit valid with 213 events. No external legal text was approved for retrieval.

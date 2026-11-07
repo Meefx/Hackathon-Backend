@@ -6,7 +6,9 @@ This is a synthetic local demo, not production security certification or legal a
 |---|---|---|
 | Human / agent identity | Signed JWT, strict algorithm/issuer/audience/time validation, static roles | Demo identity selection is deliberately not production login |
 | Entity / product | Server-bound token scope, scoped queries and composite dependency FKs | CF/LDN real contracts and mandates remain unverified |
-| Knowledge ingestion | Size limits, structural chunking, PII/secret/injection rejection, no outbound URL fetch | Pattern checks cannot detect all personal data or attacks; human review is required |
+| Knowledge ingestion | Size limits, structural chunking, PII/secret/injection rejection; no model or HTTP arbitrary-URL fetch | Pattern checks cannot detect all personal data or attacks; human review is required |
+| Curated source fetch | Operator-only CLI, explicit HTTPS hosts, public-IP/DNS pinning, redirect checks, deadlines, PDF MIME/magic and SHA-256 pins | Approved-host downloads do not establish legal correctness; hostile PDFs still need a resource-limited worker before arbitrary uploads |
+| Source archive | Immutable originals and extraction snapshots, scope checks, reviewer-only downloads, audit and byte integrity checks | Public judgments may include names; originals are never model retrieval context. DB-owner privileges can bypass triggers |
 | Retrieval | Approved/in-force/access filters before ranking, chunk IDs audited, no result cache | Local vectors are a nonsemantic baseline |
 | Evidence lifecycle | Immutable artifacts, separate QA/human roles, hash-bound approval, one-way retirement | Human review correctness cannot be proven by software |
 | Tools | Static agent/purpose allowlists; no model channel/SQL/file/network tools | Five-agent framework is not implemented here |

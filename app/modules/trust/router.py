@@ -8,6 +8,8 @@ from fastapi import APIRouter, Depends, Header, Query
 from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from app.modules.knowledge_sources.router import create_router as create_source_router
+from app.modules.knowledge_sources.service import SourceService
 from app.modules.trust import schemas
 from app.modules.trust.service import TrustService
 from app.trust.errors import TrustError
@@ -159,4 +161,9 @@ def create_router(service: TrustService) -> APIRouter:
     def console() -> str:
         return (Path(__file__).resolve().parents[2] / "trust" / "console.html").read_text()
 
+    router.include_router(
+        create_source_router(
+            SourceService(service.settings, service.database, service.clock), actor
+        )
+    )
     return router

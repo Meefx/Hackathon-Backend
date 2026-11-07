@@ -1,8 +1,9 @@
 # Data trust MVP finalization report
 
-Observed on 7 November 2026 (WIB). Branch: `codex/erwan-kms-guardrails-security`.
-Main integrated through `b517c53` on top of the earlier trust commit `ae98dbd`.
-Merge is prepared without a commit. Erwan will commit and push.
+Observed on 7 November 2026 (WIB). Branch: `erwan-kms-guardrails-security`.
+The prior integration is committed at `77cc1b4`, with main through `b517c53`.
+The current regulatory-source contribution is uncommitted; Erwan will commit and push.
+Sections 1–5 record the prior integration. Section 6 records the source-ingestion work.
 
 ## 1. Result
 
@@ -114,3 +115,73 @@ verification are extensions; no original PR is broadly claimed fully Done here.
   remain outside this contribution. No real channels, audio or payment handling.
 
 Use README for commands and `TRUST_HANDOFF.md` for the team integration boundaries.
+
+## 6. Regulatory source ingestion, 7 November 2026
+
+Pulled `origin main` before this task and again during finalization: both returned
+`Already up to date.` No commit or push was performed. Gemini browser access was
+declined; the user supplied the research text directly. Its claims were checked
+against official originals and were never treated as implementation instructions.
+`REGULATORY_SOURCES.md` records exact URLs, outdated claims, amendments and limits.
+
+Implemented a curator-only HTTPS downloader (host allowlist, public-IP/DNS pinning,
+redirect validation, MIME/magic, time/byte limits), deterministic PDF extraction and
+manifest-driven article/section selection. Original PDF and extracted page hashes
+are separate. Sidecars are pinned; OCR and faulty text layers remain review-required.
+Fresh ingestion of a pinned scan without OCR archives its bytes and quarantines its
+empty provisions. No model performs rewriting, legal approval or policy compilation.
+
+Migration `0003_source_archive` adds immutable `source_artifacts`, scoped extraction
+snapshots in `source_records`, and `source_provisions` mappings to drafts/quarantine.
+New snapshots preserve history; identical imports replay without duplicate writes.
+Download endpoints validate byte integrity and audit access before returning content.
+Only knowledge/QA/compliance/admin reviewer roles can access archives. Models have
+no new fetch/download tool. The existing dispatch path and hard policy are unchanged.
+
+The local `graceline_trust_final_demo` database contains 15 original PDFs, 788 physical
+pages and 19,973,008 bytes. The current manifest defines 61 selected provisions across
+two authorized scopes. The initial run created 25 scoped snapshots, 96 review-required
+KMS drafts and five quarantined provision mappings, with zero source failures and
+zero automatic approvals. Replaying it reported `replayed: 25`, without extra writes.
+Subsequent corrections to court reasoning and a malformed article boundary append
+new draft snapshots; historical drafts remain immutable and unavailable to agents.
+
+Before migration, a consistent custom-format `pg_dump` was restored to a disposable
+database. All 13 existing tables matched row counts and content fingerprints. After
+migration, unaffected operational tables still match the backup. API verification
+downloaded all 15 originals through 25 scoped records, verified every SHA-256, denied
+the personal role, and verified the audit chain (165 events at that checkpoint).
+No external source is approved. The old pre-Alembic database remains untouched.
+
+Tests exercise actual PostgreSQL migrations, scope/role isolation, original downloads,
+byte tampering, audit outage, immutable update/delete/truncate, idempotency, revised
+extractions, malformed/currentness metadata, SSRF and scanned/PII quarantine. The
+OpenAPI assertion now explicitly accepts the documented binary PDF response; its
+JSON assertions for every other route and existing safety assertions are retained.
+
+Observed initial complete suite: `486 passed, 1 warning in 84.60s (0:01:24)`.
+Ruff: `All checks passed!`. Mypy: `Success: no issues found in 50 source files`.
+The warning is the existing Starlette/httpx TestClient deprecation. Updated final
+verification is appended below after the corpus-boundary and scan regressions.
+
+Live downloader check succeeded for the official 2026 holiday PDF (1,056,688 bytes,
+matching its pinned hash). A separate live fetch of peraturan.go.id failed with a
+read error and reported `SOURCE_FETCH_FAILED`; the already downloaded hash-pinned
+official PDF was used for ingestion. Publisher availability is not guaranteed.
+No stale source is silently accepted after a hash mismatch or retrieval failure.
+
+Remaining boundaries: independent source/legal review before publication; approved
+English derivatives for English-language semantic use; lender mandates/SOPs and
+current AFPI editions; production auth, encryption, retention and parser isolation.
+Local hash vectors and mock Layer 2 are unchanged. No claim of exhaustive current
+law, live collections, full five-agent orchestration or production latency is made.
+
+Final checks: complete expanded suite `533 passed, 1 warning in 74.68s (0:01:14)`;
+after the last manifest-boundary correction, `25 passed in 0.27s` for the complete
+manifest suite. `uv sync --locked`: `Resolved 46 packages`, `Checked 43 packages`.
+Ruff passed, mypy passed for 50 source files, formatter reported `22 files already
+formatted`, and Alembic reported `0003_source_archive (head)`.
+Corrected manifest reimport: 19 existing snapshots replayed and six corrected scoped
+snapshots appended. Current-manifest totals remain 96 drafts and five quarantine
+mappings; history contains 31 snapshots, 138 drafts and seven quarantine mappings.
+Final audit verification: valid, 213 events. External approved knowledge count: zero.

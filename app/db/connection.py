@@ -8,7 +8,7 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
-REQUIRED_REVISION = "0002_trust"
+REQUIRED_REVISION = "0003_source_archive"
 
 
 @contextmanager
@@ -34,6 +34,7 @@ def check_ready(database_url: str) -> bool:
         connection.execute("SELECT seq, hash, prev_hash FROM trust.audit_events LIMIT 0")
         connection.execute("SELECT embedding::public.vector FROM trust.knowledge_chunks LIMIT 0")
         connection.execute("SELECT status, policy_version FROM trust.attempts LIMIT 0")
+        connection.execute("SELECT artifact_sha256 FROM trust.source_records LIMIT 0")
         return extension is not None
 
 

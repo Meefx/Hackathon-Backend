@@ -12,6 +12,7 @@ dependencies = [
     "httpx>=0.28,<1",
     "alembic>=1.14,<2",
     "sqlalchemy>=2.0,<3",
+    "pypdf>=6,<7",
 ]
 
 [dependency-groups]
