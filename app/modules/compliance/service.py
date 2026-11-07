@@ -13,7 +13,9 @@ from app.shared.idempotency import digest
 from app.trust.safety import ZONES, evaluate_contact
 
 
-def evaluate_contact_policy(connection, account_id, now, check_frequency=True):
+def evaluate_contact_policy(
+    connection, account_id, now, check_frequency=True, exclude_message_id=None
+):
     case = lock_case(connection, account_id)
     policy = connection.execute("SELECT * FROM collection_policies WHERE active").fetchone()
     current = repository.authority(connection, account_id)
@@ -31,7 +33,11 @@ def evaluate_contact_policy(connection, account_id, now, check_frequency=True):
             reasons.append("authority_scope_invalid")
         if not current["mandate_active"]:
             reasons.append("mandate_unverified")
-        history = repository.contact_history(connection, current) if check_frequency else []
+        history = (
+            repository.contact_history(connection, current, exclude_message_id)
+            if check_frequency
+            else []
+        )
         context = {
             "is_synthetic": current["is_synthetic"],
             "timezone": current["borrower_timezone"],
@@ -85,6 +91,7 @@ def binding_for(message, case, decision, knowledge_binding, expires_at):
     if expires_at.tzinfo is None or expires_at.utcoffset() is None:
         raise ValueError("Approval expiry requires a timezone")
     return {
+        **({"channel": message["channel"]} if message["channel"] in {"whatsapp", "email"} else {}),
         "message_id": message["id"],
         "message_version": message["version"],
         "content_hash": digest(message["text"]),

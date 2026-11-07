@@ -12,7 +12,9 @@ from app.db.connection import check_ready
 from app.modules.accounts.service import get_account, list_accounts
 from app.modules.collection.router import router as collection_router
 from app.modules.dashboard.service import summarize
+from app.modules.email_demo.router import router as email_demo_router
 from app.modules.manager.chat_router import router as manager_chat_router
+from app.modules.whatsapp.router import router as whatsapp_router
 from app.schemas import Account, AccountPage, CollectionStatus, Dashboard, Health
 from app.shared.errors import DomainError
 from app.trust.app import configure_trust
@@ -35,6 +37,8 @@ def create_app() -> FastAPI:
 
     app.include_router(collection_router)
     app.include_router(manager_chat_router)
+    app.include_router(whatsapp_router)
+    app.include_router(email_demo_router)
 
     @app.exception_handler(DomainError)
     def domain_error_handler(request, exc):

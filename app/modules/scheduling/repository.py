@@ -5,7 +5,9 @@ from psycopg.types.json import Jsonb
 
 def candidates(connection, today):
     return connection.execute(
-        "SELECT id FROM accounts WHERE due_date<%s AND outstanding_amount>0 ORDER BY due_date,id",
+        "SELECT a.id FROM accounts a WHERE a.due_date<%s AND a.outstanding_amount>0 "
+        "AND NOT EXISTS(SELECT 1 FROM collection_email_demos d WHERE d.account_id=a.id) "
+        "ORDER BY a.due_date,a.id",
         (today,),
     ).fetchall()
 

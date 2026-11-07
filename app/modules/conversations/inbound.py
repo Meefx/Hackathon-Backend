@@ -11,9 +11,16 @@ from app.modules.reviews.service import open_review
 
 def store_inbound(connection, account_id, text, caller, now, channel, scenario=None):
     message = {
-        "id": str(uuid4()), "account_id": account_id, "run_id": None,
-        "channel": channel, "direction": "inbound", "text": text,
-        "status": "received", "version": 1, "citation_ids": [], "created_at": now.isoformat(),
+        "id": str(uuid4()),
+        "account_id": account_id,
+        "run_id": None,
+        "channel": channel,
+        "direction": "inbound",
+        "text": text,
+        "status": "received",
+        "version": 1,
+        "citation_ids": [],
+        "created_at": now.isoformat(),
     }
     connection.execute(
         "INSERT INTO collection_messages VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",

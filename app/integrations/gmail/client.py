@@ -1,4 +1,4 @@
-"""Gmail connectivity sandbox for explicit, fixed-content team test messages."""
+"""Gmail sandbox for fixed-recipient connection and approved collection messages."""
 
 import base64
 import json
@@ -12,12 +12,14 @@ from uuid import UUID
 import httpx
 
 from app.config import Settings
+from app.integrations.channels.contracts import AuthorizedIntent
 from app.integrations.gmail.oauth import GoogleOAuthClient, read_refresh_token
 from app.shared.errors import DomainError
 
 SEND_URL = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
 TEST_SUBJECT = "CollectFlow Gmail connection test"
 TEST_BODY = "CollectFlow Gmail connection test. This is a synthetic demo message."
+COLLECTION_SUBJECT = "[DEMO] Pengingat tagihan sintetis"
 MAX_RESPONSE_BYTES = 65536
 
 
@@ -53,6 +55,12 @@ class GmailClient:
     def __init__(self, settings: Settings, *, transport: httpx.BaseTransport | None = None):
         self.settings = settings
         self.transport = transport
+        self._prepared_collection_token: str | None = None
+
+    def prepare_collection(self) -> None:
+        self._prepared_collection_token = GoogleOAuthClient(
+            self.settings, transport=self.transport
+        ).access_token()
 
     def send_test_message(self, request_id: UUID) -> dict[str, str]:
         sender = validate_mailbox(self.settings.gmail_sender_email)
@@ -63,8 +71,39 @@ class GmailClient:
         message["Subject"] = TEST_SUBJECT
         message["Message-ID"] = f"<collectflow-test-{request_id}@{sender.rsplit('@', 1)[1]}>"
         message.set_content(TEST_BODY)
+        return self._send_message(message)
+
+    def send_collection_message(self, intent: AuthorizedIntent) -> dict[str, str]:
+        sender = validate_mailbox(self.settings.gmail_sender_email)
+        recipient = validate_mailbox(self.settings.gmail_test_recipient)
+        if intent.recipient_id != "email:" + recipient:
+            raise DomainError(
+                "gmail_recipient_invalid", "Collection recipient must match the team sandbox", 403
+            )
+        try:
+            request_id = UUID(intent.intent_key)
+        except (ValueError, TypeError, AttributeError):
+            raise DomainError("gmail_intent_invalid", "Collection intent must have a UUID key", 422) from None
+        message = EmailMessage(policy=policy.SMTP)
+        message["From"] = sender
+        message["To"] = recipient
+        message["Subject"] = COLLECTION_SUBJECT
+        message["Message-ID"] = f"<collectflow-collection-{request_id}@{sender.rsplit('@', 1)[1]}>"
+        # Encoding bytes preserves the approved text, including its exact line endings.
+        message.set_content(
+            intent.text.encode("utf-8"),
+            maintype="text",
+            subtype="plain",
+            cte="base64",
+            params={"charset": "utf-8"},
+        )
+        token = self._prepared_collection_token
+        self._prepared_collection_token = None
+        return self._send_message(message, token)
+
+    def _send_message(self, message: EmailMessage, token: str | None = None) -> dict[str, str]:
         raw = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii")
-        token = GoogleOAuthClient(self.settings, transport=self.transport).access_token()
+        token = token or GoogleOAuthClient(self.settings, transport=self.transport).access_token()
         try:
             with (
                 httpx.Client(

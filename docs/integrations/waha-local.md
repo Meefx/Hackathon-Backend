@@ -6,9 +6,10 @@ matching the current workspace. WAHA uses the GOWS engine and publishes only
 `127.0.0.1:3002`, alongside the frontend on port 3000. Its independent Compose
 project is `collectflow-waha-local`.
 
-Use a team-owned WhatsApp test account and an explicitly consenting team-owned
-recipient. Test content must be synthetic. Collection runs use `simulated_chat`.
-The WAHA CLI provides a separate manual connectivity test with fixed canned text.
+Use a team-owned WhatsApp test account and synthetic content. The collection
+sandbox binds one synthetic case to the connected WhatsApp account's own chat.
+Operator follow-up drafts for that case use WAHA. Scheduled runs use
+`simulated_chat`. Runtime generation and screening use the existing demo fixtures.
 
 ## Start
 
@@ -89,6 +90,70 @@ Each invocation requests one real WhatsApp test message. Verify receipt on the
 team-owned phone. A provider acceptance response records acceptance only. Inspect
 the recipient before each invocation and reconcile an ambiguous timeout before
 trying again.
+
+## Connect the collection backend
+
+The helper prepares `WAHA_COLLECTION_ENABLED=true`, a random
+`WAHA_WEBHOOK_SECRET`, and the callback URL in the private local configuration.
+Backend `Settings` loads `.env` followed by `.env.waha.local`. Environment variables
+take precedence. The checked-in environment example keeps the sandbox disabled.
+
+Back up a populated database before upgrading. Apply the migration and restart
+the host API and collection worker from the backend repository.
+
+```sh
+./scripts/waha-local.sh init
+uv run alembic upgrade head
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+# In another terminal
+uv run python -m app.workers.collection
+```
+
+The default callback is
+`http://host.docker.internal:8000/api/v1/webhooks/waha`, allowing the WAHA Docker
+container to reach the host API on Docker Desktop. Confirm container-to-host
+connectivity on your machine. A containerized API needs a reachable callback and
+an internal provider origin configured for its deployment.
+
+1. Open a synthetic account's workspace in the frontend, for example `CF-1006`.
+2. Under **Conversation**, choose **Connect WhatsApp test channel**. The backend
+   derives the recipient from the authenticated session and displays masked digits.
+   One session can bind to one case at a time.
+3. Open **Ask manager** and create a simulated follow-up task for that account.
+   The worker creates a WhatsApp draft marked `[DEMO SINTETIS]` with approval evidence.
+4. Return to the conversation and choose **Send WhatsApp test** while approval
+   remains valid. Existing contact hours, daily budget, holds, knowledge checks,
+   and screening are enforced by the dispatch gate.
+5. Inspect the connected phone's self-chat. Provider acknowledgements update
+   `submitted`, `sent`, `delivered`, or `read` in the conversation.
+6. Reply from the phone in that self-chat. Signed `message.any` events add an
+   inbound message. Existing hardship, dispute, and opt-out handling applies.
+
+Linking changes the case version. Create a new draft after linking. Disconnecting
+restores the previous synthetic recipient and invalidates earlier approvals.
+Use **Disconnect WhatsApp test channel** before binding a different case.
+
+The backend exposes the following HTTP operations in its generated OpenAPI.
+
+| Operation | Endpoint |
+| --- | --- |
+| Read connection | `GET /api/v1/accounts/{account_id}/whatsapp` |
+| Link own test chat | `POST /api/v1/accounts/{account_id}/whatsapp` |
+| Disconnect case | `POST /api/v1/accounts/{account_id}/whatsapp/disconnect` |
+| Dispatch approved draft | `POST /api/v1/messages/{message_id}/dispatch` |
+| Receive provider event | `POST /api/v1/webhooks/waha` |
+
+Link requests require a UUID `idempotency_key`. Dispatch requests require a UUID
+`idempotency_key` and `expected_message_version`. Retry an uncertain HTTP response
+with the same request. The durable delivery intent prevents another provider send
+for that message. `delivery_unknown` requires reconciliation against the phone
+and provider. The application preserves that state when submission or local
+persistence fails and counts it against the contact budget.
+
+Webhooks require a SHA512 HMAC over the raw body with `X-Webhook-Hmac` and
+`X-Webhook-Hmac-Algorithm` headers. Events are deduplicated by session, type,
+message ID, and acknowledgement. Older acknowledgements cannot downgrade a read
+message. Only app-originated messages in the mapped self-chat enter the case.
 
 ## Stop and resume
 

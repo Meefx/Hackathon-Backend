@@ -24,6 +24,8 @@ from app.modules.conversations.repository import message_binding, template_bindi
 from app.modules.conversations.schemas import DispatchRequest
 from app.modules.knowledge_context.service import validate_citations
 from app.modules.runs.repository import require_run
+from app.modules.whatsapp.repository import connection_for, delivery_for, record_submission
+from app.modules.whatsapp.service import require_synthetic
 from app.shared.caller import Caller
 from app.shared.errors import DomainError
 from app.shared.idempotency import digest, record, replay
@@ -61,6 +63,9 @@ def dispatch_message(
     request: DispatchRequest,
     caller: Caller,
     clock: datetime | Callable[[], datetime] | Clock,
+    *,
+    whatsapp_intent_key: str | None = None,
+    email_demo_id: str | None = None,
 ) -> dict[str, Any]:
     # Scheduler provenance is persisted by server-owned admission, never caller input.
     operator = caller.actor_kind == "operator" and caller.principal_id == "local-operator"
@@ -86,6 +91,10 @@ def dispatch_message(
     ).fetchone()
     if not initial:
         raise DomainError("not_found", "Message not found", 404)
+    if initial["channel"] == "whatsapp" and whatsapp_intent_key is None:
+        raise DomainError("whatsapp_dispatch_required", "Use the WhatsApp dispatch endpoint", 422)
+    if initial["channel"] == "email" and email_demo_id is None:
+        raise DomainError("email_demo_dispatch_required", "Use the email demo workflow", 422)
     if caller.account_id and caller.account_id != initial["account_id"]:
         raise DomainError("assignment_denied", "Account assignment denied", 403)
     scoped = replace(caller, account_id=initial["account_id"])
@@ -132,9 +141,35 @@ def dispatch_message(
     payload = request.model_dump(mode="json")
     scope = "dispatch:" + message_id
     previous = replay(connection, scope, str(request.idempotency_key), payload)
-    # Every potentially blocking authority/request lock has been acquired.
+    channel_adapter = None
+    if message["channel"] == "email":
+        from app.modules.email_demo.delivery import authorize_delivery
+
+        authorize_delivery(connection, settings, message, case, email_demo_id)
+        if not previous:
+            channel_adapter = ChannelGateway(settings).resolve("email")
+            channel_adapter.prepare()
+    if message["channel"] == "whatsapp" and not previous:
+        channel_adapter = ChannelGateway(settings).resolve("whatsapp")
+        # Complete provider identity I/O before evaluating the final time gates.
+        channel_adapter.prepare()
+    # Every potentially blocking authority/request lock and provider preflight has completed.
     now = current_time(clock)
-    decision = evaluate_contact_policy(connection, message["account_id"], now)
+    decision = evaluate_contact_policy(
+        connection, message["account_id"], now, exclude_message_id=message_id
+    )
+    if message["channel"] == "whatsapp":
+        require_synthetic(connection, settings, message["account_id"])
+        whatsapp_binding = connection_for(connection, message["account_id"])
+        intent = delivery_for(connection, message_id)
+        if (
+            not whatsapp_binding
+            or not intent
+            or intent["intent_key"] != whatsapp_intent_key
+            or intent["chat_id"] != whatsapp_binding["chat_id"]
+            or case["recipient_id"] != "whatsapp:" + whatsapp_binding["chat_id"]
+        ):
+            reasons.append("recipient_unverified")
     if not message["run_id"]:
         authorize_legacy_binding(connection, persisted, message["account_id"])
     if previous:
@@ -254,16 +289,14 @@ def dispatch_message(
     status = "blocked"
     if not reasons:
         receipt = (
-            ChannelGateway()
-            .resolve(message["channel"])
-            .dispatch(
-                AuthorizedIntent(
-                    str(request.idempotency_key),
-                    message_id,
-                    message["account_id"],
-                    case["recipient_id"],
-                    message["text"],
-                )
+            channel_adapter or ChannelGateway(settings).resolve(message["channel"])
+        ).dispatch(
+            AuthorizedIntent(
+                str(request.idempotency_key),
+                message_id,
+                message["account_id"],
+                case["recipient_id"],
+                message["text"],
             )
         )
         connection.execute(
@@ -278,14 +311,23 @@ def dispatch_message(
             ),
         )
         connection.execute(
-            "UPDATE collection_messages SET status='simulated_sent',version=version+1 WHERE id=%s",
-            (message_id,),
+            "UPDATE collection_messages SET status=%s,version=version+1 WHERE id=%s",
+            (receipt["status"], message_id),
         )
-        status = "simulated_sent"
+        status = receipt["status"]
+        if message["channel"] == "email":
+            from app.modules.email_demo.service import record_submission as record_email_submission
+
+            assert email_demo_id is not None
+            record_email_submission(connection, email_demo_id, receipt["id"], now)
+        if message["channel"] == "whatsapp":
+            record_submission(connection, message_id, status, receipt["id"])
     event = append_event(
         connection,
         message["account_id"],
-        "simulate_dispatch",
+        {"whatsapp": "whatsapp_dispatch", "email": "email_demo_dispatch"}.get(
+            message["channel"], "simulate_dispatch"
+        ),
         caller.actor_kind,
         status,
         now,

@@ -163,6 +163,47 @@ account consent.
   storage has private mode-600 permissions. Email delivery evidence remains the
   synthetic HTTP simulation and its controlled failure scenarios.
 
+## Collection demo button
+
+The Integrations screen has a Gmail collection demo action. It creates a fictional
+borrower with an ID starting `EMAIL-DEMO-`, a Rp250,000 balance and a due date of
+today in Asia/Jakarta. The normal durable worker runs a simulated Manager,
+knowledge retrieval, collection draft and advisory QA. Retrieval uses the configured
+knowledge source. Missing approved knowledge blocks the workflow.
+
+Apply migration `0010_gmail_collection_demo` and run the API plus the existing
+`app.workers.collection` worker. The existing Gmail OAuth configuration and
+`DEMO_FIXTURE_ENABLED=true` are required. Each deliberate new click uses a new UUID
+and creates a fresh account and run. Retrying the same UUID returns the same demo.
+These dedicated accounts are excluded from daily collection scheduling.
+
+The only destination is the backend-configured `GMAIL_TEST_RECIPIENT`. API requests
+accept a UUID and expose a masked recipient. They accept no borrower account,
+recipient, subject or message body. The subject is `[DEMO] Pengingat tagihan sintetis`.
+The body starts `[DEMO SINTETIS]` before screening and signing, then Gmail receives
+that exact approved draft. Existing recipient authority, Jakarta contact hours,
+calendar, holds, frequency limits, evidence and short-lived approval gates apply.
+
+The bounded operator API provides these operations.
+
+- `GET /api/v1/integrations/gmail/collection-demo` returns configuration and the latest demo.
+- `POST /api/v1/integrations/gmail/collection-demo` with `{"idempotency_key":"<UUID>"}` admits a demo.
+- `GET /api/v1/integrations/gmail/collection-demo/{id}` returns its current state.
+
+Both GET operations are read-only. The worker automatically dispatches completed
+approved email drafts through the canonical collection gate. A PostgreSQL
+reservation commits before OAuth or Gmail I/O. Concurrent workers and exact
+request retries share that reservation. While I/O is in progress the demo reports
+`running`. Gmail acceptance becomes `submitted`, with a receipt and account audit.
+Verify the receiving mailbox to confirm arrival.
+
+A provider timeout reports `delivery_unknown` and consumes the contact budget.
+A crashed or interrupted reservation becomes unknown after a 180-second deadline.
+The worker never resubmits a reserved request. Reconcile the sender's Sent folder
+before starting another intentional test after an uncertain outcome. A definite
+provider rejection reports `failed`, while a collection gate rejection reports
+`blocked` with reason codes.
+
 ## Official references
 
 - [Gmail send method](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/send)

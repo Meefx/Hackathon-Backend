@@ -1,4 +1,5 @@
 from app.integrations.gmail.client import sandbox_configured
+from app.modules.whatsapp.service import configured as whatsapp_configured
 from app.shared.clock import utcnow
 
 ROLES = ("manager", "collection", "knowledge", "qa", "improvement", "copilot")
@@ -93,8 +94,10 @@ def integrations(settings):
             ["synthetic_dispatch", "synthetic_inbound"],
         ),
     ]
-    for name in ("whatsapp", "email", "phone"):
+    for name in ("email", "phone"):
         items.append(row(name, "channel", False, False, "unavailable", [], "channel_unavailable"))
+    whatsapp = whatsapp_configured(settings)
+    items.append(row("whatsapp", "channel", True, whatsapp, "sandbox" if whatsapp else "unavailable", ["synthetic_case_dispatch", "signed_webhooks", "self_chat_only"], None if whatsapp else "waha_not_configured"))
     gmail = sandbox_configured(settings)
     items.append(
         row(
@@ -110,7 +113,7 @@ def integrations(settings):
     # Configured means config exists, not an unperformed live health check.
     for item in items:
         if (
-            item["id"] in ("hermes", "mcp", "gmail")
+            item["id"] in ("hermes", "mcp", "gmail", "whatsapp")
             or item["id"] == "knowledge"
             and knowledge_module
         ) and item["configured"]:

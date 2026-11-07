@@ -18,9 +18,11 @@ The API listens at [http://localhost:8000](http://localhost:8000). Open [Swagger
 
 For a local WhatsApp connection sandbox, run `./scripts/waha-local.sh` and follow
 [the WAHA local runbook](docs/integrations/waha-local.md) to pair a team test phone
-and use the status, QR, and fixed synthetic test-message commands. WAHA runs on
-loopback port 3002 with separate credentials and persistent sessions. Collection
-workflows continue to use the simulated channel.
+and connect a synthetic case to that phone's own chat. WAHA runs on loopback
+port 3002 with separate credentials and persistent sessions. Linked operator
+follow-up drafts use the approved dispatch endpoint and signed inbound webhooks.
+Scheduled runs use the simulated channel. The runbook covers migration, worker
+startup, frontend controls, and uncertain-delivery handling.
 
 ```sh
 docker compose ps -a

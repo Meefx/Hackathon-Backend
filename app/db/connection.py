@@ -10,7 +10,7 @@ from psycopg_pool import ConnectionPool
 
 from app.config import get_settings
 
-REQUIRED_REVISION = "0009_collection_source_merge"
+REQUIRED_REVISION = "0010_gmail_collection_demo"
 
 
 @contextmanager

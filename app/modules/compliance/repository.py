@@ -20,7 +20,7 @@ def lock_contact_authority(connection, account_id: str) -> dict | None:
     return current
 
 
-def contact_history(connection, current: dict) -> list:
+def contact_history(connection, current: dict, exclude_message_id=None) -> list:
     scope = (current["principal"], current["product"], current["borrower_ref"])
     # Trust dispatches are preserved read-only at cutover. They continue consuming
     # the same borrower budget, even when several accounts map to that borrower.
@@ -29,8 +29,20 @@ def contact_history(connection, current: dict) -> list:
         "JOIN collection_authorities a ON a.account_id=r.account_id "
         "WHERE a.principal=%s AND a.product=%s AND a.borrower_ref=%s "
         "UNION ALL SELECT delivered_at AS contacted_at FROM trust.dispatches "
-        "WHERE principal=%s AND product=%s AND borrower_ref=%s AND purpose='proactive'",
-        scope + scope,
+        "WHERE principal=%s AND product=%s AND borrower_ref=%s AND purpose='proactive' "
+        "UNION ALL SELECT d.created_at FROM collection_whatsapp_deliveries d "
+        "JOIN collection_messages m ON m.id=d.message_id JOIN collection_authorities a ON a.account_id=m.account_id "
+        "WHERE a.principal=%s AND a.product=%s AND a.borrower_ref=%s AND d.status='delivery_unknown' "
+        "AND (%s::text IS NULL OR d.message_id<>%s) "
+        "AND NOT EXISTS(SELECT 1 FROM dispatch_receipts r WHERE r.message_id=d.message_id) "
+        "UNION ALL SELECT d.reserved_at FROM collection_email_demos d "
+        "JOIN collection_authorities a ON a.account_id=d.account_id "
+        "WHERE a.principal=%s AND a.product=%s AND a.borrower_ref=%s "
+        "AND d.status IN ('running','delivery_unknown') AND d.reserved_at IS NOT NULL "
+        "AND (%s::text IS NULL OR d.message_id<>%s) "
+        "AND NOT EXISTS(SELECT 1 FROM dispatch_receipts r WHERE r.message_id=d.message_id)",
+        scope + scope + scope + (exclude_message_id, exclude_message_id)
+        + scope + (exclude_message_id, exclude_message_id),
     ).fetchall()
     return [row["contacted_at"] for row in rows]
 

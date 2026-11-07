@@ -47,7 +47,7 @@ def test_gmail_registry_returns_unconfigured_when_token_storage_is_invalid(tmp_p
     assert gmail.disabled_reason == "gmail_not_configured"
 
 
-def test_registry_http_contract_includes_gmail_and_no_send_route(monkeypatch):
+def test_registry_http_contract_includes_only_bounded_gmail_demo_routes(monkeypatch):
     monkeypatch.setattr(
         "app.modules.collection.router.get_settings", lambda: Settings(_env_file=None)
     )
@@ -58,6 +58,11 @@ def test_registry_http_contract_includes_gmail_and_no_send_route(monkeypatch):
             registry = IntegrationRegistry.model_validate(response.json())
             assert any(item.id == "gmail" for item in registry.items)
             paths = client.get("/openapi.json").json()["paths"]
-            assert not any("gmail" in path for path in paths)
+            assert {path for path in paths if "gmail" in path} == {
+                "/api/v1/integrations/gmail/collection-demo",
+                "/api/v1/integrations/gmail/collection-demo/{demo_id}",
+            }
+            demo_schema = paths["/api/v1/integrations/gmail/collection-demo"]
+            assert set(demo_schema) == {"get", "post"}
     finally:
         get_settings.cache_clear()

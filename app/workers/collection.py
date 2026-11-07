@@ -383,12 +383,14 @@ def process_cycle(
     worker_id: str | None = None,
 ) -> bool:
     """Advance scheduling, one manager task and its durable delivery reconciliation."""
+    from app.modules.email_demo.delivery import tick as tick_email_demos
     from app.modules.scheduling.service import tick
 
     settings = settings or get_settings()
     tick(settings, now)
     processed = process_once(settings, now=now, worker_id=worker_id)
     tick(settings, now)
+    tick_email_demos(settings, now)
     return processed
 
 

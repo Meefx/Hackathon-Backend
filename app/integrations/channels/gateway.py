@@ -6,10 +6,17 @@ from app.shared.errors import DomainError
 
 
 class ChannelGateway:
+    def __init__(self, settings=None):
+        self.settings = settings
+
     def resolve(self, channel):
         if channel == "simulated_chat":
             return SimulatedChatAdapter()
-        unavailable = {"whatsapp": WhatsAppAdapter, "email": EmailAdapter, "phone": PhoneAdapter}
+        if channel == "whatsapp":
+            return WhatsAppAdapter(self.settings)
+        if channel == "email":
+            return EmailAdapter(self.settings)
+        unavailable = {"phone": PhoneAdapter}
         if channel in unavailable:
             return unavailable[channel]()
         raise DomainError("channel_unavailable", "Unsupported channel", 422)

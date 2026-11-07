@@ -55,6 +55,9 @@ with os.fdopen(descriptor, "r+", encoding="utf-8") as file:
         "WAHA_SESSION": "default",
         "WAHA_TIMEOUT_SECONDS": "10",
         "WAHA_TEST_RECIPIENT": "",
+        "WAHA_COLLECTION_ENABLED": "true",
+        "WAHA_WEBHOOK_SECRET": secrets.token_hex(32),
+        "WAHA_WEBHOOK_URL": "http://host.docker.internal:8000/api/v1/webhooks/waha",
         "WAHA_DASHBOARD_USERNAME": "waha-local",
         "WAHA_DASHBOARD_PASSWORD": secrets.token_hex(24),
     }

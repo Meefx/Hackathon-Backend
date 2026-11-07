@@ -30,7 +30,18 @@ class Message(BaseModel):
     channel: Literal["simulated_chat", "whatsapp", "email", "phone"]
     direction: Literal["inbound", "outbound"]
     text: str
-    status: Literal["received", "draft", "simulated_sent", "blocked"]
+    status: Literal[
+        "received",
+        "draft",
+        "simulated_sent",
+        "blocked",
+        "submitted",
+        "sent",
+        "delivered",
+        "read",
+        "failed",
+        "delivery_unknown",
+    ]
     version: int
     citation_ids: list[str]
     created_at: datetime
@@ -43,6 +54,16 @@ class DispatchRequest(WriteModel):
 
 class DispatchResult(BaseModel):
     message_id: str
-    status: Literal["simulated_sent", "blocked", "unavailable"]
+    status: Literal[
+        "simulated_sent",
+        "blocked",
+        "unavailable",
+        "submitted",
+        "sent",
+        "delivered",
+        "read",
+        "failed",
+        "delivery_unknown",
+    ]
     reason_codes: list[str]
     audit_event_id: str

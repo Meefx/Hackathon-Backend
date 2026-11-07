@@ -74,8 +74,9 @@ class CollectionService:
         with connect(self.settings.database_url) as connection:
             self.authorize(connection, caller, account_id)
             items = connection.execute(
-                "SELECT * FROM collection_messages WHERE account_id=%s "
-                "ORDER BY created_at,id LIMIT %s OFFSET %s",
+                "SELECT m.*,d.status AS whatsapp_delivery_status FROM collection_messages m "
+                "LEFT JOIN collection_whatsapp_deliveries d ON d.message_id=m.id WHERE m.account_id=%s "
+                "ORDER BY m.created_at,m.id LIMIT %s OFFSET %s",
                 (account_id, min(limit, 100), offset),
             ).fetchall()
             total_row = connection.execute(

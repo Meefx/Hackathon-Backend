@@ -51,14 +51,25 @@ function validEmail(raw) {
   const message = Buffer.from(raw, "base64url")
     .toString("utf8")
     .replace(/\r?\n[ \t]+/g, " ");
-  return (
+  const safeMailboxes = (
     /^From: sender@example\.test\r?$/m.test(message)
     && /^To: team@example\.test\r?$/m.test(message)
-    && /^Subject: CollectFlow Gmail connection test\r?$/m.test(message)
-    && /^Message-ID: <collectflow-test-[0-9a-f-]{36}@example\.test>\r?$/m.test(message)
     && !/^(Cc|Bcc):/mi.test(message)
+  );
+  const connectionTest = (
+    /^Subject: CollectFlow Gmail connection test\r?$/m.test(message)
+    && /^Message-ID: <collectflow-test-[0-9a-f-]{36}@example\.test>\r?$/m.test(message)
     && message.includes("CollectFlow Gmail connection test. This is a synthetic demo message.")
   );
+  const encodedBody = message.split(/\r?\n\r?\n/).slice(1).join("\n");
+  const collectionBody = Buffer.from(encodedBody, "base64").toString("utf8");
+  const collectionTest = (
+    /^Subject: \[DEMO\] Pengingat tagihan sintetis\r?$/m.test(message)
+    && /^Message-ID: <collectflow-collection-[0-9a-f-]{36}@example\.test>\r?$/m.test(message)
+    && /^Content-Transfer-Encoding: base64\r?$/mi.test(message)
+    && collectionBody.includes("tagihan")
+  );
+  return safeMailboxes && (connectionTest || collectionTest);
 }
 
 const server = http.createServer(async (req, res) => {
@@ -137,7 +148,7 @@ const server = http.createServer(async (req, res) => {
       });
     }
     return reply(res, 200, {
-      id: "synthetic-gmail-message",
+      id: state.accepted === 1 ? "synthetic-gmail-message" : `synthetic-gmail-message-${state.accepted}`,
       threadId: "synthetic-thread",
     });
   }

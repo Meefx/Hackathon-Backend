@@ -26,13 +26,16 @@ class WahaClient:
     def __init__(self, settings: Settings, *, transport: httpx.BaseTransport | None = None):
         self.settings = settings
         self.transport = transport
+        self._verified_chat_id: str | None = None
 
     def _request(
         self, method: str, path: str, *, payload: dict[str, Any] | None = None
     ) -> tuple[bytes, str]:
         key = self.settings.waha_api_key.get_secret_value()
         if not self.settings.waha_base_url or not key:
-            raise DomainError("waha_not_configured", "Configure the local WAHA URL and API key", 503)
+            raise DomainError(
+                "waha_not_configured", "Configure the local WAHA URL and API key", 503
+            )
         try:
             with (
                 httpx.Client(
@@ -57,7 +60,9 @@ class WahaClient:
                 if method == "POST" and response.status_code >= 500:
                     raise self._invalid_response(method)
                 if response.status_code >= 400:
-                    raise DomainError("waha_unavailable", "WAHA could not complete the request", 503)
+                    raise DomainError(
+                        "waha_unavailable", "WAHA could not complete the request", 503
+                    )
                 body = bytearray()
                 for chunk in response.iter_bytes():
                     body.extend(chunk)
@@ -67,7 +72,9 @@ class WahaClient:
         except httpx.HTTPError:
             if method == "POST":
                 raise self._invalid_response(method) from None
-            raise DomainError("waha_unavailable", "Local WAHA is unreachable or timed out", 503) from None
+            raise DomainError(
+                "waha_unavailable", "Local WAHA is unreachable or timed out", 503
+            ) from None
 
     @staticmethod
     def _invalid_response(method: str) -> DomainError:
@@ -95,7 +102,11 @@ class WahaClient:
         session = self.settings.waha_session
         data = self._json("GET", f"/api/sessions/{session}")
         status = data.get("status")
-        if data.get("name") != session or not isinstance(status, str) or status not in SESSION_STATES:
+        if (
+            data.get("name") != session
+            or not isinstance(status, str)
+            or status not in SESSION_STATES
+        ):
             raise self._invalid_response("GET")
         return {"session": session, "status": status}
 
@@ -107,21 +118,74 @@ class WahaClient:
             raise self._invalid_response("GET")
         return body
 
-    def self_chat_id(self) -> str:
+    def self_chat_identity(self) -> tuple[str, set[str]]:
         data = self._json("GET", f"/api/sessions/{self.settings.waha_session}")
-        chat_id = (data.get("me") or {}).get("id", "")
+        if data.get("name") != self.settings.waha_session:
+            raise self._invalid_response("GET")
+        identity = data.get("me")
+        if not isinstance(identity, dict):
+            identity = {}
+        chat_id = identity.get("id", "")
         if data.get("status") != "WORKING":
             raise DomainError("waha_session_not_ready", "Pair the WAHA session first", 409)
         if not isinstance(chat_id, str) or not re.fullmatch(r"[1-9][0-9]{6,14}@c\.us", chat_id):
-            raise DomainError("waha_identity_unavailable", "WAHA account identity is unavailable", 503)
+            raise DomainError(
+                "waha_identity_unavailable", "WAHA account identity is unavailable", 503
+            )
+        aliases = {chat_id, chat_id.removesuffix("@c.us") + "@s.whatsapp.net"}
+        lid = identity.get("lid") if isinstance(identity, dict) else None
+        if isinstance(lid, str) and re.fullmatch(r"[0-9]+@lid", lid):
+            aliases.add(lid)
+        return chat_id, aliases
+
+    def self_chat_id(self) -> str:
+        chat_id, _ = self.self_chat_identity()
+        self._verified_chat_id = chat_id
         return chat_id
 
+    def own_chat_for_message(self, payload: dict[str, Any]) -> str | None:
+        chat_id, aliases = self.self_chat_identity()
+        sender, destination = payload.get("from"), payload.get("to")
+        if not isinstance(sender, str) or sender not in aliases:
+            return None
+        if isinstance(destination, str) and destination in aliases:
+            return chat_id
+        if destination is not None:
+            return None
+        # GOWS omits `to` for device-sent messages. Verify the actual chat route,
+        # since fromMe alone also describes messages sent to other conversations.
+        raw = payload.get("_data")
+        info = raw.get("Info") if isinstance(raw, dict) else None
+        if not isinstance(info, dict):
+            return None
+        if (
+            payload.get("fromMe") is True
+            and info.get("IsFromMe") is True
+            and info.get("IsGroup") is False
+            and isinstance(info.get("Chat"), str)
+            and info["Chat"] in aliases
+            and isinstance(info.get("Sender"), str)
+            and info["Sender"] in aliases
+        ):
+            return chat_id
+        return None
+
     def send_text(self, chat_id: str, text: str) -> dict[str, str]:
-        if chat_id != self.self_chat_id():
-            raise DomainError("waha_recipient_denied", "Only the connected test account is allowed", 403)
-        data = self._json("POST", "/api/sendText", payload={
-            "session": self.settings.waha_session, "chatId": chat_id, "text": text,
-        })
+        identity = self._verified_chat_id or self.self_chat_id()
+        self._verified_chat_id = None
+        if chat_id != identity:
+            raise DomainError(
+                "waha_recipient_denied", "Only the connected test account is allowed", 403
+            )
+        data = self._json(
+            "POST",
+            "/api/sendText",
+            payload={
+                "session": self.settings.waha_session,
+                "chatId": chat_id,
+                "text": text,
+            },
+        )
         if not isinstance(data.get("id"), str) or not data["id"]:
             raise self._invalid_response("POST")
         return {"id": data["id"], "status": "submitted"}
@@ -129,13 +193,30 @@ class WahaClient:
     def configure_webhook(self) -> None:
         secret = self.settings.waha_webhook_secret.get_secret_value()
         if len(secret) < 32:
-            raise DomainError("waha_webhook_not_configured", "Configure the webhook signing key", 503)
+            raise DomainError(
+                "waha_webhook_not_configured", "Configure the webhook signing key", 503
+            )
         session = self.settings.waha_session
         data = self._json("GET", f"/api/sessions/{session}")
         config = data.get("config") or {}
-        hooks = [hook for hook in config.get("webhooks", []) if hook.get("url") != self.settings.waha_webhook_url]
-        hooks.append({"url": self.settings.waha_webhook_url, "events": ["message.any", "message.ack"], "hmac": {"key": secret}, "retries": {"delaySeconds": 3, "attempts": 5, "policy": "exponential"}})
-        self._json("PUT", f"/api/sessions/{session}", payload={"name": session, "config": {**config, "webhooks": hooks}})
+        hooks = [
+            hook
+            for hook in config.get("webhooks", [])
+            if hook.get("url") != self.settings.waha_webhook_url
+        ]
+        hooks.append(
+            {
+                "url": self.settings.waha_webhook_url,
+                "events": ["message.any", "message.ack"],
+                "hmac": {"key": secret},
+                "retries": {"delaySeconds": 3, "attempts": 5, "policy": "exponential"},
+            }
+        )
+        self._json(
+            "PUT",
+            f"/api/sessions/{session}",
+            payload={"name": session, "config": {**config, "webhooks": hooks}},
+        )
 
     def send_test_message(self) -> dict[str, str]:
         recipient = self.settings.waha_test_recipient

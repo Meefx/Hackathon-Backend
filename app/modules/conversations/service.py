@@ -10,21 +10,24 @@ from app.modules.cases.repository import lock_case
 from app.modules.compliance.rendering import render_message
 from app.modules.compliance.screening import (
     attest_candidate,
-    inbound_categories,
     screen_candidate,
 )
 from app.modules.compliance.service import evaluate_contact_policy
 from app.modules.conversations.dispatch import simulate_dispatch  # noqa: F401
+from app.modules.conversations.inbound import store_inbound
 from app.modules.conversations.repository import save_binding, template_binding
 from app.modules.conversations.schemas import Message
+from app.modules.email_demo import service as email_demos
 from app.modules.knowledge_context.service import validate_citations
-from app.modules.reviews.service import open_review
 from app.modules.runs.repository import check_assignment, require_run
+from app.modules.whatsapp.service import draft_channel
 from app.shared.errors import DomainError
 from app.shared.idempotency import record, replay
 
 
 def message_json(row):
+    if row["status"] == "draft" and row.get("whatsapp_delivery_status"):
+        row = {**row, "status": row["whatsapp_delivery_status"]}
     return Message.model_validate(row).model_dump(mode="json")
 
 
@@ -37,45 +40,15 @@ def receive_message(settings, account_id, request, caller, now):
         scope = "receive:" + account_id
         if old := replay(connection, scope, str(request.idempotency_key), payload):
             return old
-        message = {
-            "id": str(uuid4()),
-            "account_id": account_id,
-            "run_id": None,
-            "channel": "simulated_chat",
-            "direction": "inbound",
-            "text": request.text,
-            "status": "received",
-            "version": 1,
-            "citation_ids": [],
-            "created_at": now.isoformat(),
-        }
-        connection.execute(
-            "INSERT INTO collection_messages VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-            (
-                message["id"],
-                account_id,
-                None,
-                "simulated_chat",
-                "inbound",
-                request.text,
-                "received",
-                1,
-                Jsonb([]),
-                now,
-            ),
+        message = store_inbound(
+            connection,
+            account_id,
+            request.text,
+            caller,
+            now,
+            "simulated_chat",
+            request.demo_scenario,
         )
-        categories = inbound_categories(request.text)
-        if request.demo_scenario in ("hardship", "dispute", "human_request"):
-            categories = sorted(set(categories) | {request.demo_scenario})
-        if categories:
-            kind = "dispute" if "dispute" in categories else "hardship"
-            open_review(connection, account_id, kind, now)
-        if {"stop_request", "third_party_responder"} & set(categories):
-            connection.execute(
-                "UPDATE collection_authorities SET opted_out=true WHERE account_id=%s",
-                (account_id,),
-            )
-        append_event(connection, account_id, "message_received", caller.actor_kind, "received", now)
         record(connection, scope, str(request.idempotency_key), payload, message)
         return message
 
@@ -128,6 +101,10 @@ def submit_draft(settings, candidate, caller, now):
         if template and candidate.text_with_placeholders != body:
             raise DomainError("template_content_mismatch", "Candidate differs from template")
         text = render_message(body, account)
+        email_demo = email_demos.is_demo_run(connection, run)
+        channel = "email" if email_demo else draft_channel(connection, settings, run)
+        if channel in {"whatsapp", "email"}:
+            text = "[DEMO SINTETIS] " + text
         decision = evaluate_contact_policy(connection, candidate.account_id, now)
         mode = run["requested_runtime_mode"]
         screening = screen_candidate(text, mode=mode, fixture_enabled=settings.demo_fixture_enabled)
@@ -136,7 +113,7 @@ def submit_draft(settings, candidate, caller, now):
             "id": str(uuid4()),
             "account_id": candidate.account_id,
             "run_id": run["id"],
-            "channel": "simulated_chat",
+            "channel": channel,
             "direction": "outbound",
             "text": text,
             "status": "draft" if approved else "blocked",
@@ -150,7 +127,7 @@ def submit_draft(settings, candidate, caller, now):
                 message["id"],
                 candidate.account_id,
                 run["id"],
-                "simulated_chat",
+                channel,
                 "outbound",
                 text,
                 message["status"],
@@ -159,6 +136,8 @@ def submit_draft(settings, candidate, caller, now):
                 now,
             ),
         )
+        if email_demo:
+            email_demos.register_draft(connection, run["id"], message["id"], now)
         template = template_binding(template)
         save_binding(connection, message["id"], snapshot, template)
         snapshot = {**snapshot, "template_binding": template}
