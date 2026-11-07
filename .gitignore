@@ -4,7 +4,12 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .env
+.env.*
+!.env.example
+*.pem
+*.key
 data/
 .DS_Store
 dist/
 *.egg-info/
+docs/evidence/

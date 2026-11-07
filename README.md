@@ -55,3 +55,66 @@ tests/          Storage and HTTP behavior tests
 ```
 
 This is a local development foundation. Authentication, authorization, write workflows, payment integrations, and production database migrations are future work; use fictional data until access controls are implemented.
+
+## Erwan's evidence-control MVP
+
+The standalone trust service adds a PostgreSQL KMS, source approvals, scoped retrieval,
+weighted source-to-template dependencies, revocation, deterministic guardrails and a
+synthetic dispatch gate. It does not replace the team's SQLite portfolio API.
+All trust workflows use synthetic data. Live channels and payment handling do not exist.
+
+Start PostgreSQL17 with pgvector, for example:
+
+```sh
+docker compose -f docker-compose.trust.yml up -d
+uv sync --locked
+export TRUST_DATABASE_URL=postgresql://graceline@127.0.0.1:55432/graceline_trust
+uv run python -m app.trust.demo --serve --port 8001
+```
+
+Open [the evidence-control console](http://127.0.0.1:8001/console),
+[Swagger](http://127.0.0.1:8001/docs), or [readiness](http://127.0.0.1:8001/ready).
+The demo launcher generates ephemeral in-memory signing keys and fixes the simulated
+clock to Monday 9 November 2026, 10:00 WIB. Demo identity selection is enabled only
+by this explicit launcher. Restarting invalidates its sessions and approvals in memory.
+The database retains artifact approvals; dispatch approval tokens are never persisted.
+If port 8001 is busy, select another `--port`.
+
+For native PostgreSQL, use any isolated PostgreSQL17 database with the vector
+extension installed and set TRUST_DATABASE_URL to its DSN. Docker is optional.
+Schema creation is explicit during the trust app's lifespan. A missing database,
+missing vector extension or invalid signing configuration fails startup.
+
+Run the scripted API scenario and verification:
+
+```sh
+uv run python -m app.trust.demo --report docs/evidence/demo.json
+export TRUST_TEST_DATABASE_URL=postgresql://graceline@127.0.0.1:55432/graceline_trust
+uv run pytest -q
+uv run ruff check .
+uv run mypy app
+uv run python -m app.trust.benchmark --requests 100
+```
+
+Use a separate disposable test database when sharing a development database with a
+team. Integration tests deliberately fail if TRUST_TEST_DATABASE_URL is missing;
+they never substitute SQLite or silently skip safety checks.
+
+For embedding in the team's backend, `app.trust.app.create_trust_app` accepts explicit
+settings, clock and classifier dependencies. Keep its lifespan active when mounting.
+The module uses environment variables directly and never reads local `.env` files.
+The demo-auth interface must remain disabled outside an explicit local simulation.
+Every mutating POST except demo login requires an `Idempotency-Key` UUID. Search is
+always reevaluated against current source status. Principals/products come from the
+signed session, not request bodies. No direct dispatch endpoint exists.
+
+Review [scope and acceptance](docs/TRUST_MVP.md), [security boundaries](docs/SECURITY.md)
+and [decisions](docs/DECISIONS.md) before integration. The local hash-vector baseline
+is **not semantic embeddings**, Layer2 is mocked, and scripted demo approvals are
+**not legal review**. The full five-agent product and original 50-persona collection
+evaluation remain outside this data-module contribution.
+
+Critical retrieval also expands source context and verifies hashes within an explicit
+budget. Oversized critical evidence stops for review. The audit chain intentionally
+serializes write transactions; the included sequential local benchmark is not a
+production load or live-model latency claim.

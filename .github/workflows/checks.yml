@@ -5,6 +5,19 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      trust-db:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: graceline
+          POSTGRES_DB: graceline_trust_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["55432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U graceline -d graceline_trust_test"
+          --health-interval 3s --health-timeout 3s --health-retries 10
+    env:
+      TRUST_TEST_DATABASE_URL: postgresql://graceline@127.0.0.1:55432/graceline_trust_test
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -12,4 +25,5 @@ jobs:
           python-version: "3.12"
       - run: uv sync --locked
       - run: uv run ruff check .
+      - run: uv run mypy app
       - run: uv run pytest
